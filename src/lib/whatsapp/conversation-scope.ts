@@ -1,7 +1,7 @@
-import type { SupabaseClient } from '@supabase/supabase-js'
-import { getT } from '@/lib/i18n/translate'
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getT } from '@/lib/i18n/translate';
 
-const t = getT('LibErrors')
+const t = getT('LibErrors');
 
 // ------------------------------------------------------------
 // Conversation tenancy guard for the service-role send paths.
@@ -33,18 +33,20 @@ const t = getT('LibErrors')
 export async function assertConversationInAccount(
   db: SupabaseClient,
   conversationId: string,
-  accountId: string,
+  accountId: string
 ): Promise<void> {
   const { data, error } = await db
     .from('conversations')
     .select('id')
     .eq('id', conversationId)
     .eq('account_id', accountId)
-    .maybeSingle()
+    .maybeSingle();
   if (error) {
-    throw new Error(t('send.conversationLookupFailed', { message: error.message }))
+    throw new Error(
+      t('send.conversationLookupFailed', { message: error.message })
+    );
   }
   if (!data) {
-    throw new Error(t('send.conversationNotFound'))
+    throw new Error(t('send.conversationNotFound'));
   }
 }

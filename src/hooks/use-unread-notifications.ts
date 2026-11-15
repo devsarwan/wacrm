@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
+import { useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
 import {
   notificationsAccountFilter,
   unreadCountChange,
-} from "@/lib/notifications/unread-count";
-import type { Notification } from "@/types";
+} from '@/lib/notifications/unread-count';
+import type { Notification } from '@/types';
 
 /**
  * Count of unread notifications for the current user. Used by the
@@ -26,10 +26,10 @@ export function useUnreadNotifications(): number {
       // head:true skips fetching rows — we only need the `count`
       // supabase-js returns alongside the (empty) response body.
       const { count: unreadCount, error } = await supabase
-        .from("notifications")
-        .select("*", { count: "exact", head: true })
-        .eq("account_id", accountId)
-        .is("read_at", null);
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('account_id', accountId)
+        .is('read_at', null);
       if (cancelled || error) return;
       setCount(unreadCount ?? 0);
     };
@@ -39,11 +39,11 @@ export function useUnreadNotifications(): number {
     const channel = supabase
       .channel(`notifications-unread-count:${accountId}`)
       .on(
-        "postgres_changes",
+        'postgres_changes',
         {
-          event: "*",
-          schema: "public",
-          table: "notifications",
+          event: '*',
+          schema: 'public',
+          table: 'notifications',
           filter: notificationsAccountFilter(accountId),
         },
         (payload) => {
@@ -53,14 +53,14 @@ export function useUnreadNotifications(): number {
               new: payload.new as Partial<Notification>,
               old: payload.old as Partial<Notification>,
             },
-            accountId,
+            accountId
           );
-          if (change.kind === "refetch") {
+          if (change.kind === 'refetch') {
             void loadCount();
           } else if (change.delta !== 0) {
             setCount((n) => Math.max(0, n + change.delta));
           }
-        },
+        }
       )
       .subscribe();
 

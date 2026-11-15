@@ -1,37 +1,41 @@
-import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import {
   ForbiddenError,
   UnauthorizedError,
   requireRole,
   toErrorResponse,
-} from '@/lib/auth/account'
+} from '@/lib/auth/account';
 import {
   getSubscribedApps,
   listWabaPhoneNumbers,
   registerPhoneNumber,
   subscribeWabaToApp,
   verifyPhoneNumber,
-} from '@/lib/whatsapp/meta-api'
+} from '@/lib/whatsapp/meta-api';
 import {
   explainMetaError,
   metaErrorPayload,
   type MetaConnectStep,
   type MetaErrorContext,
-} from '@/lib/whatsapp/meta-error-explain'
+} from '@/lib/whatsapp/meta-error-explain';
 import {
   appSubscriptionState,
   describeWabaPhoneMismatch,
   isNumericMetaId,
   phoneNumberBelongsToWaba,
-} from '@/lib/whatsapp/waba-pairing'
-import { encrypt, decrypt } from '@/lib/whatsapp/encryption'
-import { resolveVerifyTokenForSave } from '@/lib/whatsapp/verify-token'
-import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
-import { getT } from '@/lib/i18n/translate'
+} from '@/lib/whatsapp/waba-pairing';
+import { encrypt, decrypt } from '@/lib/whatsapp/encryption';
+import { resolveVerifyTokenForSave } from '@/lib/whatsapp/verify-token';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
+import { getT } from '@/lib/i18n/translate';
 
-const t = getT('Api')
+const t = getT('Api');
 
 /**
  * Resolve the caller's account_id from their profile. Inlined here
@@ -45,15 +49,15 @@ const t = getT('Api')
  */
 async function resolveAccountId(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
+  userId: string
 ): Promise<string | null> {
   const { data, error } = await supabase
     .from('profiles')
     .select('account_id')
     .eq('user_id', userId)
-    .maybeSingle()
-  if (error || !data?.account_id) return null
-  return data.account_id as string
+    .maybeSingle();
+  if (error || !data?.account_id) return null;
+  return data.account_id as string;
 }
 
 // Lazy-initialised service-role client. We need it to detect a
@@ -61,15 +65,15 @@ async function resolveAccountId(
 // the user's own session can't see other users' rows, so the conflict
 // would be invisible without the service role.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _adminClient: any = null
+let _adminClient: any = null;
 function supabaseAdmin() {
   if (!_adminClient) {
     _adminClient = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    );
   }
-  return _adminClient
+  return _adminClient;
 }
 
 /**
@@ -78,17 +82,25 @@ function supabaseAdmin() {
  * Meta support. Status is 400 when the fix is on the user's side (token,
  * ids, PIN) and 502 when Meta has to change something (issue #505).
  */
-function metaFailure(err: unknown, step: MetaConnectStep, ctx: MetaErrorContext) {
-  const explained = explainMetaError(err, step, ctx)
-  console.error(`[whatsapp/config] Meta ${step} failed:`, explained.metaMessage, {
-    code: explained.code,
-    subcode: explained.subcode,
-    fbtrace_id: explained.fbtraceId,
-  })
+function metaFailure(
+  err: unknown,
+  step: MetaConnectStep,
+  ctx: MetaErrorContext
+) {
+  const explained = explainMetaError(err, step, ctx);
+  console.error(
+    `[whatsapp/config] Meta ${step} failed:`,
+    explained.metaMessage,
+    {
+      code: explained.code,
+      subcode: explained.subcode,
+      fbtrace_id: explained.fbtraceId,
+    }
+  );
   return NextResponse.json(
     { error: explained.summary, meta: metaErrorPayload(explained) },
-    { status: explained.httpStatus },
-  )
+    { status: explained.httpStatus }
+  );
 }
 
 /**
@@ -108,18 +120,21 @@ function metaFailure(err: unknown, step: MetaConnectStep, ctx: MetaErrorContext)
  */
 export async function GET() {
   try {
-    const supabase = await createClient()
+    const supabase = await createClient();
 
     const {
       data: { user },
       error: authError,
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      return NextResponse.json({ error: t('common.unauthorized') }, { status: 401 })
+      return NextResponse.json(
+        { error: t('common.unauthorized') },
+        { status: 401 }
+      );
     }
 
-    const accountId = await resolveAccountId(supabase, user.id)
+    const accountId = await resolveAccountId(supabase, user.id);
     if (!accountId) {
       return NextResponse.json(
         {
@@ -127,22 +142,26 @@ export async function GET() {
           reason: 'no_account',
           message: t('common.profileNotLinked'),
         },
-        { status: 200 },
-      )
+        { status: 200 }
+      );
     }
 
     const { data: config, error: configError } = await supabase
       .from('whatsapp_config')
       .select('phone_number_id, waba_id, access_token, status')
       .eq('account_id', accountId)
-      .maybeSingle()
+      .maybeSingle();
 
     if (configError) {
-      console.error('Error fetching whatsapp_config:', configError)
+      console.error('Error fetching whatsapp_config:', configError);
       return NextResponse.json(
-        { connected: false, reason: 'db_error', message: t('whatsappConfig.fetchFailed') },
+        {
+          connected: false,
+          reason: 'db_error',
+          message: t('whatsappConfig.fetchFailed'),
+        },
         { status: 200 }
-      )
+      );
     }
 
     if (!config) {
@@ -153,41 +172,43 @@ export async function GET() {
           message: t('whatsappConfig.noConfig'),
         },
         { status: 200 }
-      )
+      );
     }
 
     // Try to decrypt the stored token with the current ENCRYPTION_KEY.
     // If this fails, the key changed (or was never consistent across envs).
-    let accessToken: string
+    let accessToken: string;
     try {
-      accessToken = decrypt(config.access_token)
+      accessToken = decrypt(config.access_token);
     } catch (err) {
-      console.error('[whatsapp/config GET] Token decryption failed:', err)
+      console.error('[whatsapp/config GET] Token decryption failed:', err);
       return NextResponse.json(
         {
           connected: false,
           reason: 'token_corrupted',
           needs_reset: true,
-          message:
-            t('whatsappConfig.tokenCorrupted'),
+          message: t('whatsappConfig.tokenCorrupted'),
         },
         { status: 200 }
-      )
+      );
     }
 
     // Validate credentials against Meta
-    let phoneInfo
+    let phoneInfo;
     try {
       phoneInfo = await verifyPhoneNumber({
         phoneNumberId: config.phone_number_id,
         accessToken,
-      })
+      });
     } catch (err) {
       const explained = explainMetaError(err, 'verify_number', {
         phoneNumberId: config.phone_number_id,
         wabaId: config.waba_id,
-      })
-      console.error('[whatsapp/config GET] Meta API verification failed:', explained.metaMessage)
+      });
+      console.error(
+        '[whatsapp/config GET] Meta API verification failed:',
+        explained.metaMessage
+      );
       return NextResponse.json(
         {
           connected: false,
@@ -196,7 +217,7 @@ export async function GET() {
           meta: metaErrorPayload(explained),
         },
         { status: 200 }
-      )
+      );
     }
 
     // Credentials work. Also report whether the WABA is subscribed to
@@ -205,28 +226,33 @@ export async function GET() {
     // fatal: the token may lack whatsapp_business_management and still
     // be fine for sending.
     let wabaSubscription: {
-      checked: boolean
-      subscribed: boolean | null
-      app_id_match: boolean | null
-      error?: string
-    } = { checked: false, subscribed: null, app_id_match: null }
+      checked: boolean;
+      subscribed: boolean | null;
+      app_id_match: boolean | null;
+      error?: string;
+    } = { checked: false, subscribed: null, app_id_match: null };
     if (config.waba_id) {
       try {
-        const subs = await getSubscribedApps({ wabaId: config.waba_id, accessToken })
-        const state = appSubscriptionState(subs, process.env.META_APP_ID)
+        const subs = await getSubscribedApps({
+          wabaId: config.waba_id,
+          accessToken,
+        });
+        const state = appSubscriptionState(subs, process.env.META_APP_ID);
         wabaSubscription = {
           checked: true,
           subscribed: state.subscribed,
           app_id_match: state.appIdMatch,
-        }
+        };
       } catch (err) {
-        const explained = explainMetaError(err, 'subscribed_apps', { wabaId: config.waba_id })
+        const explained = explainMetaError(err, 'subscribed_apps', {
+          wabaId: config.waba_id,
+        });
         wabaSubscription = {
           checked: true,
           subscribed: null,
           app_id_match: null,
           error: explained.summary,
-        }
+        };
       }
     }
 
@@ -234,13 +260,17 @@ export async function GET() {
       connected: true,
       phone_info: phoneInfo,
       waba_subscription: wabaSubscription,
-    })
+    });
   } catch (error) {
-    console.error('Error in WhatsApp config GET:', error)
+    console.error('Error in WhatsApp config GET:', error);
     return NextResponse.json(
-      { connected: false, reason: 'unknown', message: t('common.internalServerError') },
+      {
+        connected: false,
+        reason: 'unknown',
+        message: t('common.internalServerError'),
+      },
       { status: 500 }
-    )
+    );
   }
 }
 
@@ -257,19 +287,22 @@ export async function GET() {
  */
 export async function POST(request: Request) {
   try {
-    const { supabase, accountId, userId } = await requireRole('admin')
+    const { supabase, accountId, userId } = await requireRole('admin');
 
-    const limit = checkRateLimit(`whatsapp-admin:${userId}`, RATE_LIMITS.whatsappAdmin)
-    if (!limit.success) return rateLimitResponse(limit)
+    const limit = checkRateLimit(
+      `whatsapp-admin:${userId}`,
+      RATE_LIMITS.whatsappAdmin
+    );
+    if (!limit.success) return rateLimitResponse(limit);
 
-    const body = await request.json()
-    const { phone_number_id, waba_id, access_token, verify_token, pin } = body
+    const body = await request.json();
+    const { phone_number_id, waba_id, access_token, verify_token, pin } = body;
 
     if (!access_token || !phone_number_id) {
       return NextResponse.json(
         { error: t('whatsappConfig.credentialsRequired') },
         { status: 400 }
-      )
+      );
     }
 
     // Meta ids are decimal digit strings. Catch the classic paste
@@ -279,31 +312,37 @@ export async function POST(request: Request) {
     if (!isNumericMetaId(phone_number_id)) {
       return NextResponse.json(
         {
-          error:
-            t('whatsappConfig.phoneIdDigits'),
+          error: t('whatsappConfig.phoneIdDigits'),
           field: 'phone_number_id',
         },
         { status: 400 }
-      )
+      );
     }
-    if (waba_id !== undefined && waba_id !== null && waba_id !== '' && !isNumericMetaId(waba_id)) {
+    if (
+      waba_id !== undefined &&
+      waba_id !== null &&
+      waba_id !== '' &&
+      !isNumericMetaId(waba_id)
+    ) {
       return NextResponse.json(
         {
-          error:
-            t('whatsappConfig.wabaIdDigits'),
+          error: t('whatsappConfig.wabaIdDigits'),
           field: 'waba_id',
         },
         { status: 400 }
-      )
+      );
     }
-    const metaCtx: MetaErrorContext = { phoneNumberId: phone_number_id, wabaId: waba_id || null }
+    const metaCtx: MetaErrorContext = {
+      phoneNumberId: phone_number_id,
+      wabaId: waba_id || null,
+    };
 
     if (pin !== undefined && pin !== null && pin !== '') {
       if (typeof pin !== 'string' || !/^\d{6}$/.test(pin)) {
         return NextResponse.json(
           { error: t('whatsappConfig.pinDigits') },
           { status: 400 }
-        )
+        );
       }
     }
 
@@ -319,35 +358,34 @@ export async function POST(request: Request) {
       .select('account_id')
       .eq('phone_number_id', phone_number_id)
       .neq('account_id', accountId)
-      .maybeSingle()
+      .maybeSingle();
 
     if (claimedError) {
-      console.error('Error checking phone_number_id ownership:', claimedError)
+      console.error('Error checking phone_number_id ownership:', claimedError);
       return NextResponse.json(
         { error: t('whatsappConfig.validateFailed') },
         { status: 500 }
-      )
+      );
     }
 
     if (claimed) {
       return NextResponse.json(
         {
-          error:
-            t('whatsappConfig.numberLinkedElsewhere'),
+          error: t('whatsappConfig.numberLinkedElsewhere'),
         },
         { status: 409 }
-      )
+      );
     }
 
     // Verify credentials with Meta BEFORE saving
-    let phoneInfo
+    let phoneInfo;
     try {
       phoneInfo = await verifyPhoneNumber({
         phoneNumberId: phone_number_id,
         accessToken: access_token,
-      })
+      });
     } catch (err) {
-      return metaFailure(err, 'verify_number', metaCtx)
+      return metaFailure(err, 'verify_number', metaCtx);
     }
 
     // The number resolves — now make sure it lives under the WABA the
@@ -355,19 +393,23 @@ export async function POST(request: Request) {
     // subscribe the *wrong* account, surfacing days later as a webhook
     // that never fires. Failing here names the mismatch instead.
     if (waba_id) {
-      let wabaNumbers
+      let wabaNumbers;
       try {
         wabaNumbers = await listWabaPhoneNumbers({
           wabaId: waba_id,
           accessToken: access_token,
-        })
+        });
       } catch (err) {
-        return metaFailure(err, 'waba_phone_numbers', metaCtx)
+        return metaFailure(err, 'waba_phone_numbers', metaCtx);
       }
       if (!phoneNumberBelongsToWaba(wabaNumbers, phone_number_id)) {
         return NextResponse.json(
           {
-            error: describeWabaPhoneMismatch(wabaNumbers, phone_number_id, waba_id),
+            error: describeWabaPhoneMismatch(
+              wabaNumbers,
+              phone_number_id,
+              waba_id
+            ),
             field: 'waba_id',
             meta: {
               code: null,
@@ -379,7 +421,7 @@ export async function POST(request: Request) {
             },
           },
           { status: 400 }
-        )
+        );
       }
     }
 
@@ -393,32 +435,32 @@ export async function POST(request: Request) {
       .from('whatsapp_config')
       .select('id, registered_at, phone_number_id, verify_token')
       .eq('account_id', accountId)
-      .maybeSingle()
+      .maybeSingle();
 
     // Encrypt sensitive tokens before storing
-    let encryptedAccessToken: string
-    let encryptedVerifyToken: string | null
+    let encryptedAccessToken: string;
+    let encryptedVerifyToken: string | null;
     try {
-      encryptedAccessToken = encrypt(access_token)
+      encryptedAccessToken = encrypt(access_token);
       encryptedVerifyToken = resolveVerifyTokenForSave(
         verify_token,
         existing?.verify_token ?? null
-      )
+      );
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown encryption error'
-      console.error('Encryption failed:', message)
+      const message =
+        err instanceof Error ? err.message : 'Unknown encryption error';
+      console.error('Encryption failed:', message);
       return NextResponse.json(
         {
-          error:
-            t('whatsappConfig.encryptFailed'),
+          error: t('whatsappConfig.encryptFailed'),
         },
         { status: 500 }
-      )
+      );
     }
 
     const sameNumber =
       existing?.phone_number_id === phone_number_id &&
-      existing?.registered_at != null
+      existing?.registered_at != null;
 
     // Step 1: register the phone number for inbound webhooks.
     //
@@ -427,15 +469,18 @@ export async function POST(request: Request) {
     // when the same number is already registered and no PIN was
     // supplied — re-registering an already-active number with a
     // stale PIN would actually fail and undo the active subscription.
-    let registeredAt: string | null = sameNumber ? existing.registered_at : null
-    let registrationError: string | null = null
-    let registrationMeta: ReturnType<typeof metaErrorPayload> | null = null
+    let registeredAt: string | null = sameNumber
+      ? existing.registered_at
+      : null;
+    let registrationError: string | null = null;
+    let registrationMeta: ReturnType<typeof metaErrorPayload> | null = null;
     // True when registration was deliberately skipped because no PIN
     // was supplied (see below). Distinct from registrationError — this
     // is not a failure, just an incomplete-but-valid save.
-    let registrationSkipped = false
+    let registrationSkipped = false;
 
-    const needsRegistration = !sameNumber || (typeof pin === 'string' && pin.length > 0)
+    const needsRegistration =
+      !sameNumber || (typeof pin === 'string' && pin.length > 0);
     if (needsRegistration) {
       if (!pin) {
         // No PIN provided. Meta TEST numbers (Developer Console) are
@@ -447,20 +492,24 @@ export async function POST(request: Request) {
         // credentials as connected, and leave registered_at null. The
         // UI surfaces a separate "Not registered" banner with a path to
         // add a PIN later for users who do need inbound webhook routing.
-        registrationSkipped = true
+        registrationSkipped = true;
       } else {
         try {
           await registerPhoneNumber({
             phoneNumberId: phone_number_id,
             accessToken: access_token,
             pin,
-          })
-          registeredAt = new Date().toISOString()
+          });
+          registeredAt = new Date().toISOString();
         } catch (err) {
-          const explained = explainMetaError(err, 'register', metaCtx)
-          registrationError = explained.summary
-          registrationMeta = metaErrorPayload(explained)
-          console.error('Phone number /register failed:', explained.metaMessage, registrationMeta)
+          const explained = explainMetaError(err, 'register', metaCtx);
+          registrationError = explained.summary;
+          registrationMeta = metaErrorPayload(explained);
+          console.error(
+            'Phone number /register failed:',
+            explained.metaMessage,
+            registrationMeta
+          );
           // We deliberately fall through and still save the row so the
           // user can retry without re-entering everything. The UI
           // surfaces `last_registration_error` so they see WHY it's
@@ -480,16 +529,16 @@ export async function POST(request: Request) {
     // treat it as a failed connect and say why (issue #505). Nothing
     // has been written yet, so the user just fixes the cause and saves
     // again.
-    let subscribedAppsAt: string | null = null
+    let subscribedAppsAt: string | null = null;
     if (waba_id) {
       try {
         await subscribeWabaToApp({
           wabaId: waba_id,
           accessToken: access_token,
-        })
-        subscribedAppsAt = new Date().toISOString()
+        });
+        subscribedAppsAt = new Date().toISOString();
       } catch (err) {
-        return metaFailure(err, 'subscribe_waba', metaCtx)
+        return metaFailure(err, 'subscribe_waba', metaCtx);
       }
     }
 
@@ -507,20 +556,20 @@ export async function POST(request: Request) {
       subscribed_apps_at: subscribedAppsAt ?? null,
       last_registration_error: registrationError,
       updated_at: new Date().toISOString(),
-    }
+    };
 
     if (existing) {
       const { error: updateError } = await supabase
         .from('whatsapp_config')
         .update(baseRow)
-        .eq('account_id', accountId)
+        .eq('account_id', accountId);
 
       if (updateError) {
-        console.error('Error updating whatsapp_config:', updateError)
+        console.error('Error updating whatsapp_config:', updateError);
         return NextResponse.json(
           { error: t('whatsappConfig.updateFailed') },
           { status: 500 }
-        )
+        );
       }
     } else {
       // Insert with both columns: `account_id` is the tenancy key
@@ -533,14 +582,14 @@ export async function POST(request: Request) {
           account_id: accountId,
           user_id: userId,
           ...baseRow,
-        })
+        });
 
       if (insertError) {
-        console.error('Error inserting whatsapp_config:', insertError)
+        console.error('Error inserting whatsapp_config:', insertError);
         return NextResponse.json(
           { error: t('whatsappConfig.saveFailed') },
           { status: 500 }
-        )
+        );
       }
     }
 
@@ -556,7 +605,7 @@ export async function POST(request: Request) {
         error: registrationError,
         meta: registrationMeta,
         phone_info: phoneInfo,
-      })
+      });
     }
 
     return NextResponse.json({
@@ -569,13 +618,16 @@ export async function POST(request: Request) {
       // rather than claiming the number is fully live.
       registration_skipped: registrationSkipped,
       phone_info: phoneInfo,
-    })
+    });
   } catch (error) {
     if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {
-      return toErrorResponse(error)
+      return toErrorResponse(error);
     }
-    console.error('Error in WhatsApp config POST:', error)
-    return NextResponse.json({ error: t('common.internalServerError') }, { status: 500 })
+    console.error('Error in WhatsApp config POST:', error);
+    return NextResponse.json(
+      { error: t('common.internalServerError') },
+      { status: 500 }
+    );
   }
 }
 
@@ -588,27 +640,30 @@ export async function POST(request: Request) {
  */
 export async function DELETE() {
   try {
-    const { supabase, accountId } = await requireRole('admin')
+    const { supabase, accountId } = await requireRole('admin');
 
     const { error: deleteError } = await supabase
       .from('whatsapp_config')
       .delete()
-      .eq('account_id', accountId)
+      .eq('account_id', accountId);
 
     if (deleteError) {
-      console.error('Error deleting whatsapp_config:', deleteError)
+      console.error('Error deleting whatsapp_config:', deleteError);
       return NextResponse.json(
         { error: t('whatsappConfig.deleteFailed') },
         { status: 500 }
-      )
+      );
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true });
   } catch (error) {
     if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {
-      return toErrorResponse(error)
+      return toErrorResponse(error);
     }
-    console.error('Error in WhatsApp config DELETE:', error)
-    return NextResponse.json({ error: t('common.internalServerError') }, { status: 500 })
+    console.error('Error in WhatsApp config DELETE:', error);
+    return NextResponse.json(
+      { error: t('common.internalServerError') },
+      { status: 500 }
+    );
   }
 }

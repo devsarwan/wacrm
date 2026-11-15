@@ -9,7 +9,12 @@ interface Recorded {
   ranges: [number, number][];
 }
 
-function fakeDb(rowsByTable: Record<string, { id: string; account_id: string; user_id: string }[]>) {
+function fakeDb(
+  rowsByTable: Record<
+    string,
+    { id: string; account_id: string; user_id: string }[]
+  >
+) {
   const recorded: Recorded[] = [];
   const db = {
     from(table: string) {
@@ -26,10 +31,14 @@ function fakeDb(rowsByTable: Record<string, { id: string; account_id: string; us
           entry.ranges.push([from, to]);
           const matching = (rowsByTable[table] ?? []).filter((row) =>
             entry.filters.every(
-              ([column, value]) => (row as Record<string, unknown>)[column] === value,
-            ),
+              ([column, value]) =>
+                (row as Record<string, unknown>)[column] === value
+            )
           );
-          return Promise.resolve({ data: matching.slice(from, to + 1), error: null });
+          return Promise.resolve({
+            data: matching.slice(from, to + 1),
+            error: null,
+          });
         },
       };
       return builder;
@@ -64,7 +73,9 @@ describe('fetchAccountTemplates', () => {
   });
 
   it('pages past the 1000-row response cap', async () => {
-    const { db } = fakeDb({ message_templates: rows(PAGE_SIZE + 5, 'acct-1', 'me') });
+    const { db } = fakeDb({
+      message_templates: rows(PAGE_SIZE + 5, 'acct-1', 'me'),
+    });
 
     const result = await fetchAccountTemplates(db, 'acct-1');
 
@@ -75,13 +86,19 @@ describe('fetchAccountTemplates', () => {
 describe('fetchAccountTags', () => {
   it('scopes tags by account rather than by the caller', async () => {
     const { db, recorded } = fakeDb({
-      tags: [...rows(1, 'acct-1', 'me'), ...rows(2, 'acct-1', 'teammate'), ...rows(1, 'acct-2', 'x')],
+      tags: [
+        ...rows(1, 'acct-1', 'me'),
+        ...rows(2, 'acct-1', 'teammate'),
+        ...rows(1, 'acct-2', 'x'),
+      ],
     });
 
     const result = await fetchAccountTags(db, 'acct-1');
 
     expect(result).toHaveLength(3);
     expect(recorded[0].filters).toEqual([['account_id', 'acct-1']]);
-    expect(recorded[0].filters.some(([column]) => column === 'user_id')).toBe(false);
+    expect(recorded[0].filters.some(([column]) => column === 'user_id')).toBe(
+      false
+    );
   });
 });

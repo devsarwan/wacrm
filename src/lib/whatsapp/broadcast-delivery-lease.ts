@@ -18,7 +18,8 @@ export type DeliveryLeaseResult =
 
 type Sleep = (ms: number) => Promise<unknown>;
 
-const defaultSleep: Sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const defaultSleep: Sleep = (ms) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 async function callLeaseRpc(
   db: SupabaseClient,

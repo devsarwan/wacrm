@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     if (!message_id || typeof emoji !== 'string') {
       return NextResponse.json(
         { error: t('react.idEmojiRequired') },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -59,16 +59,16 @@ export async function POST(request: Request) {
       .maybeSingle();
 
     if (msgError || !targetMessage) {
-      return NextResponse.json({ error: t('react.messageNotFound') }, { status: 404 });
+      return NextResponse.json(
+        { error: t('react.messageNotFound') },
+        { status: 404 }
+      );
     }
 
     if (!targetMessage.message_id) {
       // No Meta ID yet — usually a sending/failed agent message. We can't
       // tell Meta to react to a message it never received.
-      return NextResponse.json(
-        { error: t('react.notSent') },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: t('react.notSent') }, { status: 400 });
     }
 
     const { data: conversation, error: convError } = await supabase
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
     if (convError || !conversation) {
       return NextResponse.json(
         { error: t('common.conversationNotFound') },
-        { status: 404 },
+        { status: 404 }
       );
     }
 
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
     if (!sendTarget) {
       return NextResponse.json(
         { error: t('react.contactNoPhone') },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     if (configError || !config) {
       return NextResponse.json(
         { error: t('common.whatsappNotConfiguredDot') },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -128,7 +128,7 @@ export async function POST(request: Request) {
       console.error('[whatsapp/react] Meta send failed:', message);
       return NextResponse.json(
         { error: t('react.metaError', { message }) },
-        { status: 502 },
+        { status: 502 }
       );
     }
 
@@ -140,7 +140,7 @@ export async function POST(request: Request) {
         console.error('[whatsapp/react] DB delete failed:', delError.message);
         return NextResponse.json(
           { error: t('react.dbDeleteFailed') },
-          { status: 500 },
+          { status: 500 }
         );
       }
     } else {
@@ -151,14 +151,17 @@ export async function POST(request: Request) {
           conversationId: targetMessage.conversation_id,
         },
         userId,
-        emoji,
+        emoji
       );
 
       if (upsertError) {
-        console.error('[whatsapp/react] DB upsert failed:', upsertError.message);
+        console.error(
+          '[whatsapp/react] DB upsert failed:',
+          upsertError.message
+        );
         return NextResponse.json(
           { error: t('react.dbUpsertFailed') },
-          { status: 500 },
+          { status: 500 }
         );
       }
     }

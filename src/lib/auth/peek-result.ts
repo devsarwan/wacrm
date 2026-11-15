@@ -22,10 +22,9 @@ export interface PeekFail {
 
 export type PeekResult = PeekOk | PeekFail;
 
-export const RETRYABLE_PEEK_FAIL_REASONS: ReadonlySet<PeekFailReason> = new Set([
-  'rate_limited',
-  'server_error',
-]);
+export const RETRYABLE_PEEK_FAIL_REASONS: ReadonlySet<PeekFailReason> = new Set(
+  ['rate_limited', 'server_error']
+);
 
 function isPeekFailReason(value: unknown): value is PeekFailReason {
   return (

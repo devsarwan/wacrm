@@ -38,14 +38,18 @@ describe('acquireWizardDeliveryLease', () => {
 
   it('reports the lease as lost when a resume already holds the broadcast', async () => {
     const { db } = rpcDb({ data: null, error: null });
-    expect(await acquireWizardDeliveryLease(db, 'bc-1', noSleep)).toEqual({ status: 'lost' });
+    expect(await acquireWizardDeliveryLease(db, 'bc-1', noSleep)).toEqual({
+      status: 'lost',
+    });
   });
 });
 
 describe('renewWizardDeliveryLease', () => {
   it('renews against the lease the wizard holds', async () => {
     const { db, rpc } = rpcDb({ data: SERVER_LEASE, error: null });
-    expect(await renewWizardDeliveryLease(db, 'bc-1', 'held-lease', noSleep)).toEqual({
+    expect(
+      await renewWizardDeliveryLease(db, 'bc-1', 'held-lease', noSleep)
+    ).toEqual({
       status: 'held',
       lease: SERVER_LEASE,
     });
@@ -57,7 +61,9 @@ describe('renewWizardDeliveryLease', () => {
 
   it('reports the lease as lost once a resume has taken it over', async () => {
     const { db, rpc } = rpcDb({ data: null, error: null });
-    expect(await renewWizardDeliveryLease(db, 'bc-1', 'held-lease', noSleep)).toEqual({
+    expect(
+      await renewWizardDeliveryLease(db, 'bc-1', 'held-lease', noSleep)
+    ).toEqual({
       status: 'lost',
     });
     expect(rpc).toHaveBeenCalledTimes(1);
@@ -65,8 +71,13 @@ describe('renewWizardDeliveryLease', () => {
 
   it('retries a transient failure with backoff instead of giving the lease up', async () => {
     const sleep = vi.fn<(ms: number) => Promise<void>>(async () => undefined);
-    const { db, rpc } = rpcDb(new Error('Failed to fetch'), { data: SERVER_LEASE, error: null });
-    expect(await renewWizardDeliveryLease(db, 'bc-1', 'held-lease', sleep)).toEqual({
+    const { db, rpc } = rpcDb(new Error('Failed to fetch'), {
+      data: SERVER_LEASE,
+      error: null,
+    });
+    expect(
+      await renewWizardDeliveryLease(db, 'bc-1', 'held-lease', sleep)
+    ).toEqual({
       status: 'held',
       lease: SERVER_LEASE,
     });
@@ -81,7 +92,9 @@ describe('renewWizardDeliveryLease', () => {
       error: { message: 'upstream timeout' },
     }));
     const { db, rpc } = rpcDb(...failures);
-    expect(await renewWizardDeliveryLease(db, 'bc-1', 'held-lease', sleep)).toEqual({
+    expect(
+      await renewWizardDeliveryLease(db, 'bc-1', 'held-lease', sleep)
+    ).toEqual({
       status: 'error',
       message: 'upstream timeout',
     });
@@ -94,7 +107,9 @@ describe('isBroadcastDeliveryInFlight', () => {
   it('trusts the database clock', async () => {
     const { db, rpc } = rpcDb({ data: true, error: null });
     expect(await isBroadcastDeliveryInFlight(db, 'bc-1')).toBe(true);
-    expect(rpc).toHaveBeenCalledWith('broadcast_delivery_in_flight', { p_broadcast_id: 'bc-1' });
+    expect(rpc).toHaveBeenCalledWith('broadcast_delivery_in_flight', {
+      p_broadcast_id: 'bc-1',
+    });
   });
 
   it('falls back to showing Resume when the check fails', async () => {

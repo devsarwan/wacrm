@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useEffect, useRef, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
-import { fetchAllPages } from "@/lib/supabase/paged-query";
-import { applyUnreadChange, type UnreadChange } from "@/lib/inbox/unread-set";
+import { useEffect, useRef, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { fetchAllPages } from '@/lib/supabase/paged-query';
+import { applyUnreadChange, type UnreadChange } from '@/lib/inbox/unread-set';
 
 /**
  * Count of conversations with at least one unread inbound message for
@@ -29,11 +29,11 @@ export function useTotalUnread(): number {
       try {
         rows = await fetchAllPages<{ id: string }>((from, to) =>
           supabase
-            .from("conversations")
-            .select("id")
-            .gt("unread_count", 0)
-            .order("id")
-            .range(from, to),
+            .from('conversations')
+            .select('id')
+            .gt('unread_count', 0)
+            .order('id')
+            .range(from, to)
         );
       } catch {
         return;
@@ -45,15 +45,15 @@ export function useTotalUnread(): number {
     })();
 
     const channel = supabase
-      .channel("total-unread-realtime")
+      .channel('total-unread-realtime')
       .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "conversations" },
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations' },
         (payload) => {
           const unreadIds = unreadIdsRef.current;
           applyUnreadChange(unreadIds, payload as unknown as UnreadChange);
           setTotal(unreadIds.size);
-        },
+        }
       )
       .subscribe();
 

@@ -3,43 +3,43 @@ import type {
   AutomationStepType,
   AutomationTriggerConfig,
   AutomationTriggerType,
-} from '@/types'
-import { getT } from '@/lib/i18n/translate'
+} from '@/types';
+import { getT } from '@/lib/i18n/translate';
 
 export type TemplateSlug =
-  | 'welcome_message'
-  | 'out_of_office'
-  | 'lead_qualifier'
-  | 'follow_up_reminder'
+  'welcome_message' | 'out_of_office' | 'lead_qualifier' | 'follow_up_reminder';
 
 export interface TemplateStepSeed {
-  step_type: AutomationStepType
-  step_config: AutomationStepConfig
-  branch?: 'yes' | 'no' | null
+  step_type: AutomationStepType;
+  step_config: AutomationStepConfig;
+  branch?: 'yes' | 'no' | null;
   /** Index (within this seed list) of the Condition parent, if nested. */
-  parent_index?: number | null
+  parent_index?: number | null;
 }
 
 export interface AutomationTemplateDefinition {
-  slug: TemplateSlug
-  name: string
-  description: string
-  trigger_type: AutomationTriggerType
-  trigger_config: AutomationTriggerConfig
-  steps: TemplateStepSeed[]
+  slug: TemplateSlug;
+  name: string;
+  description: string;
+  trigger_type: AutomationTriggerType;
+  trigger_config: AutomationTriggerConfig;
+  steps: TemplateStepSeed[];
 }
 
-const t = getT('StarterAutomations')
+const t = getT('StarterAutomations');
 
 /** Comma-separated keyword list from the catalogue → trimmed array. */
 function keywords(key: string): string[] {
   return t(key)
     .split(',')
     .map((k) => k.trim())
-    .filter(Boolean)
+    .filter(Boolean);
 }
 
-export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefinition> = {
+export const AUTOMATION_TEMPLATES: Record<
+  TemplateSlug,
+  AutomationTemplateDefinition
+> = {
   welcome_message: {
     slug: 'welcome_message',
     name: t('welcome_message.name'),
@@ -133,8 +133,8 @@ export const AUTOMATION_TEMPLATES: Record<TemplateSlug, AutomationTemplateDefini
       },
     ],
   },
-}
+};
 
 export function getTemplate(slug: string): AutomationTemplateDefinition | null {
-  return AUTOMATION_TEMPLATES[slug as TemplateSlug] ?? null
+  return AUTOMATION_TEMPLATES[slug as TemplateSlug] ?? null;
 }

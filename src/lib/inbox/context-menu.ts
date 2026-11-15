@@ -4,8 +4,12 @@ export interface ContextMenuOrigin {
   onLink: boolean;
 }
 
-export function shouldOpenTouchToolbar({ pointerType, coarsePointer, onLink }: ContextMenuOrigin): boolean {
+export function shouldOpenTouchToolbar({
+  pointerType,
+  coarsePointer,
+  onLink,
+}: ContextMenuOrigin): boolean {
   if (onLink) return false;
-  if (pointerType) return pointerType === "touch";
+  if (pointerType) return pointerType === 'touch';
   return coarsePointer;
 }

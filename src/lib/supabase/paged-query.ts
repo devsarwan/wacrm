@@ -17,13 +17,13 @@ export function chunk<T>(values: readonly T[], size = IN_CHUNK_SIZE): T[][] {
 
 export async function fetchAllPages<T>(
   fetchPage: (from: number, to: number) => PromiseLike<PageResult<T>>,
-  pageSize = PAGE_SIZE,
+  pageSize = PAGE_SIZE
 ): Promise<T[]> {
   const rows: T[] = [];
   for (;;) {
     const { data, error } = await fetchPage(
       rows.length,
-      rows.length + pageSize - 1,
+      rows.length + pageSize - 1
     );
     if (error) throw new Error(error.message);
     if (!data || data.length === 0) return rows;
@@ -34,7 +34,7 @@ export async function fetchAllPages<T>(
 export async function fetchPagesUpTo<T>(
   fetchPage: (from: number, to: number) => PromiseLike<PageResult<T>>,
   maxRows: number,
-  pageSize = PAGE_SIZE,
+  pageSize = PAGE_SIZE
 ): Promise<T[]> {
   const rows: T[] = [];
   while (rows.length < maxRows) {
@@ -55,16 +55,16 @@ export async function fetchAllInChunks<T, V>(
   fetchPage: (
     values: V[],
     from: number,
-    to: number,
+    to: number
   ) => PromiseLike<PageResult<T>>,
   chunkSize = IN_CHUNK_SIZE,
-  pageSize = PAGE_SIZE,
+  pageSize = PAGE_SIZE
 ): Promise<T[]> {
   const rows: T[] = [];
   for (const slice of chunk(values, chunkSize)) {
     const page = await fetchAllPages(
       (from, to) => fetchPage(slice, from, to),
-      pageSize,
+      pageSize
     );
     for (const row of page) rows.push(row);
   }

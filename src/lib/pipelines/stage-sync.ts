@@ -12,7 +12,7 @@ export function sortByPosition<T extends StageLike>(stages: readonly T[]): T[] {
 
 export function reconcileStages<T extends StageLike>(
   local: readonly T[],
-  incoming: readonly T[],
+  incoming: readonly T[]
 ): T[] {
   const incomingIds = new Set(incoming.map((s) => s.id));
   const localIds = new Set(local.map((s) => s.id));
@@ -23,7 +23,7 @@ export function reconcileStages<T extends StageLike>(
 
 export function buildStageUpdateRows(
   local: readonly StageLike[],
-  existingIds: ReadonlySet<string>,
+  existingIds: ReadonlySet<string>
 ): StageLike[] {
   return local
     .filter((s) => existingIds.has(s.id))

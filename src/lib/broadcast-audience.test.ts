@@ -49,7 +49,9 @@ function cappedPostgrest(tables: Record<string, Row[]>) {
         ilike(col: string, pattern: string) {
           const needle = pattern.replace(/%/g, '').toLowerCase();
           filters.push((row) =>
-            String(row[col] ?? '').toLowerCase().includes(needle),
+            String(row[col] ?? '')
+              .toLowerCase()
+              .includes(needle)
           );
           return builder;
         },
@@ -57,7 +59,7 @@ function cappedPostgrest(tables: Record<string, Row[]>) {
           inValues += values.length;
           inChars += values.reduce<number>(
             (sum, v) => sum + encodeURIComponent(String(v)).length + 1,
-            0,
+            0
           );
           const allowed = new Set(values);
           filters.push((row) => allowed.has(row[col]));
@@ -75,28 +77,32 @@ function cappedPostgrest(tables: Record<string, Row[]>) {
           requests.push({ table, inValues, head });
           if (inChars > MAX_IN_CLAUSE_CHARS) {
             return Promise.resolve(
-              resolve({ data: null, count: null, error: { message: 'URI Too Long' } }),
+              resolve({
+                data: null,
+                count: null,
+                error: { message: 'URI Too Long' },
+              })
             );
           }
           let rows = (tables[table] ?? []).filter((row) =>
-            filters.every((f) => f(row)),
+            filters.every((f) => f(row))
           );
           const total = rows.length;
           if (head) {
             return Promise.resolve(
-              resolve({ data: null, count: count ? total : null, error: null }),
+              resolve({ data: null, count: count ? total : null, error: null })
             );
           }
           if (orderBy) {
             const key = orderBy;
             rows = [...rows].sort((a, b) =>
-              String(a[key]).localeCompare(String(b[key])),
+              String(a[key]).localeCompare(String(b[key]))
             );
           }
           const [from, to] = window ?? [0, Number.MAX_SAFE_INTEGER];
           const page = rows.slice(from, Math.min(to + 1, from + MAX_ROWS));
           return Promise.resolve(
-            resolve({ data: page, count: count ? total : null, error: null }),
+            resolve({ data: page, count: count ? total : null, error: null })
           );
         },
       };
@@ -147,12 +153,12 @@ describe('resolveAudienceContacts', () => {
     const result = await resolveAudienceContacts(
       db,
       { type: 'tags', tagIds: ['tag-big'] },
-      noCsv,
+      noCsv
     );
 
     expect(result).toHaveLength(2812);
     expect(new Set(result.map((c) => c.id))).toEqual(
-      new Set(tagged.map((c) => c.id)),
+      new Set(tagged.map((c) => c.id))
     );
     for (const r of requests) expect(r.inValues).toBeLessThanOrEqual(100);
   });
@@ -167,7 +173,7 @@ describe('resolveAudienceContacts', () => {
     const result = await resolveAudienceContacts(
       db,
       { type: 'tags', tagIds: ['tag-780'] },
-      noCsv,
+      noCsv
     );
 
     expect(result).toHaveLength(780);
@@ -186,7 +192,7 @@ describe('resolveAudienceContacts', () => {
     const result = await resolveAudienceContacts(
       db,
       { type: 'tags', tagIds: ['tag-a', 'tag-b'] },
-      noCsv,
+      noCsv
     );
 
     expect(result).toHaveLength(1500);
@@ -203,7 +209,7 @@ describe('resolveAudienceContacts', () => {
     const result = await resolveAudienceContacts(
       db,
       { type: 'all', excludeTagIds: ['tag-optout'] },
-      noCsv,
+      noCsv
     );
 
     const optedOutIds = new Set(optedOut.map((c) => c.id));
@@ -223,8 +229,12 @@ describe('resolveAudienceContacts', () => {
 
     const result = await resolveAudienceContacts(
       db,
-      { type: 'tags', tagIds: ['tag-customers'], excludeTagIds: ['tag-optout'] },
-      noCsv,
+      {
+        type: 'tags',
+        tagIds: ['tag-customers'],
+        excludeTagIds: ['tag-optout'],
+      },
+      noCsv
     );
 
     expect(result).toHaveLength(1300);
@@ -250,7 +260,7 @@ describe('resolveAudienceContacts', () => {
         type: 'custom_field',
         customField: { fieldId: 'field-city', operator: 'is', value: 'Kaunas' },
       },
-      noCsv,
+      noCsv
     );
 
     expect(result).toHaveLength(1200);
@@ -270,7 +280,7 @@ describe('resolveAudienceContacts', () => {
         csvContacts: [{ phone: '+1' }],
         excludeTagIds: ['tag-optout'],
       },
-      async () => all as unknown as Contact[],
+      async () => all as unknown as Contact[]
     );
 
     expect(result.map((c) => c.id)).toEqual([all[1].id, all[2].id]);
@@ -279,7 +289,7 @@ describe('resolveAudienceContacts', () => {
   it('returns nothing for an empty tag selection', async () => {
     const { db, requests } = cappedPostgrest({ contacts: contacts(5) });
     expect(
-      await resolveAudienceContacts(db, { type: 'tags', tagIds: [] }, noCsv),
+      await resolveAudienceContacts(db, { type: 'tags', tagIds: [] }, noCsv)
     ).toEqual([]);
     expect(requests).toHaveLength(0);
   });
@@ -288,15 +298,18 @@ describe('resolveAudienceContacts', () => {
     const db = {
       from: () => {
         const b: Record<string, unknown> = {};
-        for (const m of ['select', 'in', 'order', 'range', 'eq']) b[m] = () => b;
+        for (const m of ['select', 'in', 'order', 'range', 'eq'])
+          b[m] = () => b;
         b.then = (resolve: (r: unknown) => unknown) =>
-          Promise.resolve(resolve({ data: null, error: { message: 'denied' } }));
+          Promise.resolve(
+            resolve({ data: null, error: { message: 'denied' } })
+          );
         return b;
       },
     } as unknown as SupabaseClient;
 
     await expect(
-      resolveAudienceContacts(db, { type: 'tags', tagIds: ['t'] }, noCsv),
+      resolveAudienceContacts(db, { type: 'tags', tagIds: ['t'] }, noCsv)
     ).rejects.toThrow('Failed to fetch contact tags: denied');
   });
 });
@@ -315,7 +328,7 @@ describe('countAudience', () => {
       contact_tags: tagRows(all.slice(0, 1700), 'tag-optout', 'x'),
     });
     expect(
-      await countAudience(db, { type: 'all', excludeTagIds: ['tag-optout'] }),
+      await countAudience(db, { type: 'all', excludeTagIds: ['tag-optout'] })
     ).toBe(900);
   });
 
@@ -329,14 +342,14 @@ describe('countAudience', () => {
       ],
     });
     expect(await countAudience(db, { type: 'tags', tagIds: ['tag-big'] })).toBe(
-      2812,
+      2812
     );
     expect(
       await countAudience(db, {
         type: 'tags',
         tagIds: ['tag-big'],
         excludeTagIds: ['tag-optout'],
-      }),
+      })
     ).toBe(1712);
   });
 
@@ -354,7 +367,7 @@ describe('countAudience', () => {
       await countAudience(db, {
         type: 'custom_field',
         customField: { fieldId: 'f', operator: 'contains', value: 'gold' },
-      }),
+      })
     ).toBe(1500);
   });
 
@@ -375,7 +388,7 @@ describe('countAudience', () => {
       await countAudience(db, {
         type: 'custom_field',
         customField: { fieldId: 'f', operator: 'is', value: '' },
-      }),
+      })
     ).toBeNull();
     expect(await countAudience(db, { type: 'csv' })).toBeNull();
   });

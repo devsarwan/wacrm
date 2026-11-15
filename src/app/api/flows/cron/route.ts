@@ -1,15 +1,15 @@
-import { timingSafeEqual } from 'node:crypto'
-import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/flows/admin-client'
-import { checkRunTimeout, markRunTimedOut } from '@/lib/flows/timeout'
+import { timingSafeEqual } from 'node:crypto';
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/flows/admin-client';
+import { checkRunTimeout, markRunTimedOut } from '@/lib/flows/timeout';
 
-const TIMEOUT_SWEEP_PAGE_SIZE = 500
-const TIMEOUT_SWEEP_MAX_PAGES = 20
+const TIMEOUT_SWEEP_PAGE_SIZE = 500;
+const TIMEOUT_SWEEP_MAX_PAGES = 20;
 
 interface TimedOutRunRow {
-  id: string
-  last_advanced_at: string
-  fallback_policy: unknown
+  id: string;
+  last_advanced_at: string;
+  fallback_policy: unknown;
 }
 
 /**
@@ -36,51 +36,54 @@ interface TimedOutRunRow {
  * tenants.
  */
 export async function GET(request: Request) {
-  const expected = process.env.AUTOMATION_CRON_SECRET
+  const expected = process.env.AUTOMATION_CRON_SECRET;
   if (!expected) {
-    return NextResponse.json({ error: 'cron not configured' }, { status: 503 })
+    return NextResponse.json({ error: 'cron not configured' }, { status: 503 });
   }
   // Constant-time compare so an attacker who can hit the endpoint
   // can't recover the secret byte-by-byte from response-time deltas.
   // Length pre-check is required by timingSafeEqual (throws otherwise)
   // and leaks only the length itself, which isn't sensitive.
-  const supplied = request.headers.get('x-cron-secret') ?? ''
-  const suppliedBuf = Buffer.from(supplied)
-  const expectedBuf = Buffer.from(expected)
+  const supplied = request.headers.get('x-cron-secret') ?? '';
+  const suppliedBuf = Buffer.from(supplied);
+  const expectedBuf = Buffer.from(expected);
   if (
     suppliedBuf.length !== expectedBuf.length ||
     !timingSafeEqual(suppliedBuf, expectedBuf)
   ) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const admin = supabaseAdmin()
-  const now = new Date()
+  const admin = supabaseAdmin();
+  const now = new Date();
 
-  let swept = 0
+  let swept = 0;
   for (let page = 0; page < TIMEOUT_SWEEP_MAX_PAGES; page += 1) {
     const { data: runs, error } = await admin.rpc('list_timed_out_flow_runs', {
       p_now: now.toISOString(),
       p_limit: TIMEOUT_SWEEP_PAGE_SIZE,
-    })
+    });
     if (error) {
-      console.error('[flows-cron] timed-out run scan failed:', error.message)
-      return NextResponse.json({ error: error.message, swept }, { status: 500 })
+      console.error('[flows-cron] timed-out run scan failed:', error.message);
+      return NextResponse.json(
+        { error: error.message, swept },
+        { status: 500 }
+      );
     }
 
-    const rows = (runs ?? []) as TimedOutRunRow[]
-    let sweptThisPage = 0
+    const rows = (runs ?? []) as TimedOutRunRow[];
+    let sweptThisPage = 0;
     for (const r of rows) {
-      const check = checkRunTimeout(r.last_advanced_at, r.fallback_policy, now)
-      if (!check.timedOut) continue
+      const check = checkRunTimeout(r.last_advanced_at, r.fallback_policy, now);
+      if (!check.timedOut) continue;
       if (await markRunTimedOut(admin, r.id, check, 'stale_sweep', now)) {
-        sweptThisPage += 1
+        sweptThisPage += 1;
       }
     }
-    swept += sweptThisPage
+    swept += sweptThisPage;
 
-    if (rows.length < TIMEOUT_SWEEP_PAGE_SIZE || sweptThisPage === 0) break
+    if (rows.length < TIMEOUT_SWEEP_PAGE_SIZE || sweptThisPage === 0) break;
   }
 
-  return NextResponse.json({ swept })
+  return NextResponse.json({ swept });
 }

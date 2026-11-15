@@ -1,13 +1,13 @@
-import { timingSafeEqual } from 'node:crypto'
-import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/automations/admin-client'
+import { timingSafeEqual } from 'node:crypto';
+import { NextResponse } from 'next/server';
+import { supabaseAdmin } from '@/lib/automations/admin-client';
 import {
   claimPendingExecution,
   expireAwaitingReplies,
   requeueStalledExecutions,
   resumePendingExecution,
-} from '@/lib/automations/engine'
-import type { AutomationContext } from '@/lib/automations/engine'
+} from '@/lib/automations/engine';
+import type { AutomationContext } from '@/lib/automations/engine';
 
 /**
  * Drain due `automation_pending_executions` rows. Meant to be hit
@@ -21,41 +21,43 @@ import type { AutomationContext } from '@/lib/automations/engine'
  * two-step UPDATE-by-id.
  */
 export async function GET(request: Request) {
-  const expected = process.env.AUTOMATION_CRON_SECRET
+  const expected = process.env.AUTOMATION_CRON_SECRET;
   if (!expected) {
-    return NextResponse.json({ error: 'cron not configured' }, { status: 503 })
+    return NextResponse.json({ error: 'cron not configured' }, { status: 503 });
   }
-  const supplied = request.headers.get('x-cron-secret') ?? ''
-  const suppliedBuf = Buffer.from(supplied)
-  const expectedBuf = Buffer.from(expected)
+  const supplied = request.headers.get('x-cron-secret') ?? '';
+  const suppliedBuf = Buffer.from(supplied);
+  const expectedBuf = Buffer.from(expected);
   if (
     suppliedBuf.length !== expectedBuf.length ||
     !timingSafeEqual(suppliedBuf, expectedBuf)
   ) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   // Close out wait_for_reply runs whose 24h reply window lapsed. The
   // webhook already refuses to resume them; this just settles their
   // status and explains the outcome on the log.
-  const expired = await expireAwaitingReplies()
-  const requeued = await requeueStalledExecutions()
+  const expired = await expireAwaitingReplies();
+  const requeued = await requeueStalledExecutions();
 
-  const admin = supabaseAdmin()
+  const admin = supabaseAdmin();
   const { data: due, error } = await admin
     .from('automation_pending_executions')
     .select('*')
     .eq('status', 'pending')
     .lte('run_at', new Date().toISOString())
     .order('run_at', { ascending: true })
-    .limit(50)
+    .limit(50);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!due || due.length === 0) return NextResponse.json({ processed: 0, expired, requeued })
+  if (error)
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!due || due.length === 0)
+    return NextResponse.json({ processed: 0, expired, requeued });
 
-  let processed = 0
+  let processed = 0;
   for (const row of due) {
-    if (!(await claimPendingExecution(row.id as string))) continue
+    if (!(await claimPendingExecution(row.id as string))) continue;
 
     await resumePendingExecution({
       id: row.id as string,
@@ -71,9 +73,9 @@ export async function GET(request: Request) {
       next_step_position: row.next_step_position as number,
       parked_step_id: (row.parked_step_id as string | null) ?? null,
       context: (row.context as AutomationContext) ?? {},
-    })
-    processed++
+    });
+    processed++;
   }
 
-  return NextResponse.json({ processed, expired, requeued })
+  return NextResponse.json({ processed, expired, requeued });
 }

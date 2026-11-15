@@ -49,8 +49,7 @@ export function serializeWebhookEndpoint(
 }
 
 export type WebhookUrlCheck =
-  | { ok: true; url: string }
-  | { ok: false; message: string };
+  { ok: true; url: string } | { ok: false; message: string };
 
 /**
  * Validate a webhook target URL: must be a well-formed absolute

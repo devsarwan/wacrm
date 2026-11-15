@@ -1,9 +1,9 @@
-"use client";
+'use client';
 
-import { useMemo } from "react";
-import { cn } from "@/lib/utils";
-import type { MessageReaction } from "@/types";
-import { groupReactions } from "@/lib/inbox/business-reaction";
+import { useMemo } from 'react';
+import { cn } from '@/lib/utils';
+import type { MessageReaction } from '@/types';
+import { groupReactions } from '@/lib/inbox/business-reaction';
 
 interface MessageReactionsProps {
   reactions: MessageReaction[];
@@ -29,10 +29,10 @@ export function MessageReactions({
           onClick={() => onToggle(g.emoji)}
           aria-pressed={g.byBusiness}
           className={cn(
-            "inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] leading-none transition-colors",
+            'inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px] leading-none transition-colors',
             g.byBusiness
-              ? "border-primary/60 bg-primary/15 text-primary hover:bg-primary/25"
-              : "border-border bg-muted/80 text-foreground hover:bg-muted",
+              ? 'border-primary/60 bg-primary/15 text-primary hover:bg-primary/25'
+              : 'border-border bg-muted/80 text-foreground hover:bg-muted'
           )}
         >
           <span className="text-sm leading-none">{g.emoji}</span>

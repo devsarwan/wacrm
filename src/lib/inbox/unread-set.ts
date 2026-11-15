@@ -1,9 +1,15 @@
 export type UnreadChange =
-  | { eventType: "DELETE"; old: { id?: string } }
-  | { eventType: "INSERT" | "UPDATE"; new: { id: string; unread_count?: number | null } };
+  | { eventType: 'DELETE'; old: { id?: string } }
+  | {
+      eventType: 'INSERT' | 'UPDATE';
+      new: { id: string; unread_count?: number | null };
+    };
 
-export function applyUnreadChange(unreadIds: Set<string>, change: UnreadChange): void {
-  if (change.eventType === "DELETE") {
+export function applyUnreadChange(
+  unreadIds: Set<string>,
+  change: UnreadChange
+): void {
+  if (change.eventType === 'DELETE') {
     if (change.old.id) unreadIds.delete(change.old.id);
     return;
   }

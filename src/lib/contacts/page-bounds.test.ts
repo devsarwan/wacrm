@@ -57,10 +57,14 @@ describe('pageAfterRangeError', () => {
   });
 
   it('steps back one page when the total is not reported', () => {
-    expect(pageAfterRangeError(3, 25, { code: 'PGRST103', details: null })).toBe(2);
+    expect(
+      pageAfterRangeError(3, 25, { code: 'PGRST103', details: null })
+    ).toBe(2);
   });
 
   it('ignores other errors', () => {
-    expect(pageAfterRangeError(3, 25, { code: '42501', details: null })).toBeNull();
+    expect(
+      pageAfterRangeError(3, 25, { code: '42501', details: null })
+    ).toBeNull();
   });
 });

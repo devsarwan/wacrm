@@ -110,10 +110,15 @@ export async function POST(request: Request) {
 
     if (resolved.conversationCreated) {
       after(() =>
-        dispatchWebhookEvent(ctx.supabase, ctx.accountId, 'conversation.created', {
-          conversation_id: resolved.conversationId,
-          contact_id: resolved.contactId,
-        })
+        dispatchWebhookEvent(
+          ctx.supabase,
+          ctx.accountId,
+          'conversation.created',
+          {
+            conversation_id: resolved.conversationId,
+            contact_id: resolved.contactId,
+          }
+        )
       );
     }
 

@@ -91,7 +91,9 @@ export function extractTemplateVariables(text: string): string[] {
   if (all.length > 0 && all.every((k) => /^\d+$/.test(k))) {
     return extractVariableIndices(text).map(String);
   }
-  return all.filter((k) => isNamedVariable(k)).sort((a, b) => a.localeCompare(b));
+  return all
+    .filter((k) => isNamedVariable(k))
+    .sort((a, b) => a.localeCompare(b));
 }
 
 /** True for a NAMED template variable key (`customer_name`, not `1`). */
@@ -110,7 +112,7 @@ function assertBodyContiguous(indices: number[]): void {
         t('bodyNotContiguous', {
           first: '{{1}}',
           found: indices.map((n) => `{{${n}}}`).join(', '),
-        }),
+        })
       );
     }
   }
@@ -120,7 +122,10 @@ export function validateBody(bodyText: string): number[] {
   if (!bodyText.trim()) throw new Error(t('bodyRequired'));
   if (bodyText.length > TEMPLATE_LIMITS.bodyMaxLength) {
     throw new Error(
-      t('bodyTooLong', { max: TEMPLATE_LIMITS.bodyMaxLength, got: bodyText.length }),
+      t('bodyTooLong', {
+        max: TEMPLATE_LIMITS.bodyMaxLength,
+        got: bodyText.length,
+      })
     );
   }
   const indices = extractVariableIndices(bodyText);
@@ -132,7 +137,10 @@ export function validateFooter(footerText: string | undefined): void {
   if (!footerText) return;
   if (footerText.length > TEMPLATE_LIMITS.footerMaxLength) {
     throw new Error(
-      t('footerTooLong', { max: TEMPLATE_LIMITS.footerMaxLength, got: footerText.length }),
+      t('footerTooLong', {
+        max: TEMPLATE_LIMITS.footerMaxLength,
+        got: footerText.length,
+      })
     );
   }
   if (extractVariableIndices(footerText).length > 0) {
@@ -149,9 +157,10 @@ export function validateHeader(
   payload: Pick<
     TemplatePayload,
     'header_type' | 'header_content' | 'header_media_url' | 'header_handle'
-  >,
+  >
 ): HeaderValidationResult {
-  const { header_type, header_content, header_media_url, header_handle } = payload;
+  const { header_type, header_content, header_media_url, header_handle } =
+    payload;
   if (!header_type) return { variableCount: 0 };
 
   if (header_type === 'text') {
@@ -163,14 +172,12 @@ export function validateHeader(
         t('headerTextTooLong', {
           max: TEMPLATE_LIMITS.headerTextMaxLength,
           got: header_content.length,
-        }),
+        })
       );
     }
     const indices = extractVariableIndices(header_content);
     if (indices.length > 1) {
-      throw new Error(
-        t('headerTooManyVariables', { count: indices.length }),
-      );
+      throw new Error(t('headerTooManyVariables', { count: indices.length }));
     }
     if (indices.length === 1 && indices[0] !== 1) {
       throw new Error(t('headerVariableMustBeFirst', { var: '{{1}}' }));
@@ -181,9 +188,7 @@ export function validateHeader(
   // image / video / document need either a public URL or a Resumable
   // Upload handle. Either one — Meta accepts both example forms.
   if (!header_media_url && !header_handle) {
-    throw new Error(
-      t('mediaHeaderRequiresSource', { type: header_type }),
-    );
+    throw new Error(t('mediaHeaderRequiresSource', { type: header_type }));
   }
   if (header_media_url) {
     try {
@@ -199,7 +204,7 @@ export function validateHeader(
 }
 
 function countButtonsByType(
-  buttons: TemplateButton[],
+  buttons: TemplateButton[]
 ): Record<TemplateButton['type'], number> {
   const counts: Record<TemplateButton['type'], number> = {
     QUICK_REPLY: 0,
@@ -215,14 +220,20 @@ export function validateButtons(buttons: TemplateButton[] | undefined): void {
   if (!buttons || buttons.length === 0) return;
   if (buttons.length > TEMPLATE_LIMITS.maxButtonsTotal) {
     throw new Error(
-      t('tooManyButtons', { max: TEMPLATE_LIMITS.maxButtonsTotal, got: buttons.length }),
+      t('tooManyButtons', {
+        max: TEMPLATE_LIMITS.maxButtonsTotal,
+        got: buttons.length,
+      })
     );
   }
 
   const counts = countButtonsByType(buttons);
   if (counts.URL > TEMPLATE_LIMITS.maxUrlButtons) {
     throw new Error(
-      t('tooManyUrlButtons', { max: TEMPLATE_LIMITS.maxUrlButtons, got: counts.URL }),
+      t('tooManyUrlButtons', {
+        max: TEMPLATE_LIMITS.maxUrlButtons,
+        got: counts.URL,
+      })
     );
   }
   if (counts.PHONE_NUMBER > TEMPLATE_LIMITS.maxPhoneButtons) {
@@ -230,7 +241,7 @@ export function validateButtons(buttons: TemplateButton[] | undefined): void {
       t('tooManyPhoneButtons', {
         max: TEMPLATE_LIMITS.maxPhoneButtons,
         got: counts.PHONE_NUMBER,
-      }),
+      })
     );
   }
   if (counts.COPY_CODE > TEMPLATE_LIMITS.maxCopyCodeButtons) {
@@ -238,7 +249,7 @@ export function validateButtons(buttons: TemplateButton[] | undefined): void {
       t('tooManyCopyCodeButtons', {
         max: TEMPLATE_LIMITS.maxCopyCodeButtons,
         got: counts.COPY_CODE,
-      }),
+      })
     );
   }
 
@@ -249,9 +260,7 @@ export function validateButtons(buttons: TemplateButton[] | undefined): void {
   for (const b of buttons) {
     if (b.type === 'QUICK_REPLY') {
       if (sawNonQR) {
-        throw new Error(
-          t('quickReplyInterleaved'),
-        );
+        throw new Error(t('quickReplyInterleaved'));
       }
     } else {
       sawNonQR = true;
@@ -265,7 +274,10 @@ export function validateButtons(buttons: TemplateButton[] | undefined): void {
     }
     if (b.text.length > TEMPLATE_LIMITS.buttonTextMaxLength) {
       throw new Error(
-        t('buttonTextTooLong', { n: i + 1, max: TEMPLATE_LIMITS.buttonTextMaxLength }),
+        t('buttonTextTooLong', {
+          n: i + 1,
+          max: TEMPLATE_LIMITS.buttonTextMaxLength,
+        })
       );
     }
     switch (b.type) {
@@ -280,19 +292,17 @@ export function validateButtons(buttons: TemplateButton[] | undefined): void {
         }
         const urlVars = extractVariableIndices(b.url);
         if (urlVars.length > 1) {
-          throw new Error(
-            t('urlButtonTooManyVariables', { n: i + 1 }),
-          );
+          throw new Error(t('urlButtonTooManyVariables', { n: i + 1 }));
         }
         if (urlVars.length === 1) {
           if (urlVars[0] !== 1) {
             throw new Error(
-              t('urlButtonVariableMustBeFirst', { n: i + 1, var: '{{1}}' }),
+              t('urlButtonVariableMustBeFirst', { n: i + 1, var: '{{1}}' })
             );
           }
           if (!b.example?.trim()) {
             throw new Error(
-              t('urlButtonNeedsExample', { n: i + 1, var: '{{1}}' }),
+              t('urlButtonNeedsExample', { n: i + 1, var: '{{1}}' })
             );
           }
         }
@@ -300,16 +310,12 @@ export function validateButtons(buttons: TemplateButton[] | undefined): void {
       }
       case 'PHONE_NUMBER':
         if (!b.phone_number?.trim()) {
-          throw new Error(
-            t('phoneButtonMissingNumber', { n: i + 1 }),
-          );
+          throw new Error(t('phoneButtonMissingNumber', { n: i + 1 }));
         }
         break;
       case 'COPY_CODE':
         if (!b.example?.trim()) {
-          throw new Error(
-            t('copyCodeButtonMissingExample', { n: i + 1 }),
-          );
+          throw new Error(t('copyCodeButtonMissingExample', { n: i + 1 }));
         }
         break;
     }
@@ -323,7 +329,7 @@ export function validateButtons(buttons: TemplateButton[] | undefined): void {
 export function validateSampleValues(
   payload: TemplatePayload,
   bodyVarCount: number,
-  headerVarCount: number,
+  headerVarCount: number
 ): void {
   const samples = payload.sample_values ?? {};
   const body = samples.body ?? [];
@@ -331,12 +337,15 @@ export function validateSampleValues(
 
   if (body.length !== bodyVarCount) {
     throw new Error(
-      t('bodySampleCountMismatch', { count: bodyVarCount, got: body.length }),
+      t('bodySampleCountMismatch', { count: bodyVarCount, got: body.length })
     );
   }
   if (header.length !== headerVarCount) {
     throw new Error(
-      t('headerSampleCountMismatch', { count: headerVarCount, got: header.length }),
+      t('headerSampleCountMismatch', {
+        count: headerVarCount,
+        got: header.length,
+      })
     );
   }
   for (let i = 0; i < body.length; i++) {

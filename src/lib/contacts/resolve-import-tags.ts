@@ -75,12 +75,10 @@ async function moveContactTagLinks(
 
     const page = data ?? [];
     if (page.length > 0) {
-      const { error: upsertError } = await supabase
-        .from('contact_tags')
-        .upsert(
-          page.map((row) => ({ contact_id: row.contact_id, tag_id: winnerId })),
-          { onConflict: 'contact_id,tag_id', ignoreDuplicates: true }
-        );
+      const { error: upsertError } = await supabase.from('contact_tags').upsert(
+        page.map((row) => ({ contact_id: row.contact_id, tag_id: winnerId })),
+        { onConflict: 'contact_id,tag_id', ignoreDuplicates: true }
+      );
       if (upsertError) throw upsertError;
     }
 

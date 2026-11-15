@@ -4,7 +4,7 @@ import type { MessageTemplate, Tag } from '@/types';
 
 export function fetchAccountTemplates(
   db: SupabaseClient,
-  accountId: string,
+  accountId: string
 ): Promise<MessageTemplate[]> {
   return fetchAllPages<MessageTemplate>((from, to) =>
     db
@@ -13,13 +13,13 @@ export function fetchAccountTemplates(
       .eq('account_id', accountId)
       .order('created_at', { ascending: false })
       .order('id')
-      .range(from, to),
+      .range(from, to)
   );
 }
 
 export function fetchAccountTags(
   db: SupabaseClient,
-  accountId: string,
+  accountId: string
 ): Promise<Tag[]> {
   return fetchAllPages<Tag>((from, to) =>
     db
@@ -28,6 +28,6 @@ export function fetchAccountTags(
       .eq('account_id', accountId)
       .order('created_at', { ascending: true })
       .order('id')
-      .range(from, to),
+      .range(from, to)
   );
 }

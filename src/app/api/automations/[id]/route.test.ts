@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ------------------------------------------------------------
 // Regression coverage for GHSA-xvrq-88hg-44q6.
@@ -34,7 +34,7 @@ const h = vi.hoisted(() => ({
     /** Writes the fake DB accepted, by table + operation. */
     writes: [] as { table: string; op: string; filters: [string, unknown][] }[],
   },
-}))
+}));
 
 vi.mock('next/server', () => ({
   NextResponse: {
@@ -43,7 +43,7 @@ vi.mock('next/server', () => ({
       status: init?.status ?? 200,
     }),
   },
-}))
+}));
 
 // The handlers no longer reach for the cookie-scoped SSR client, but
 // keep it mocked: without this the pre-patch code under test would fail
@@ -58,7 +58,7 @@ vi.mock('@/lib/supabase/server', () => ({
       }),
     },
   }),
-}))
+}));
 
 vi.mock('@/lib/auth/account', () => ({
   getCurrentAccount: async () => ({
@@ -75,13 +75,13 @@ vi.mock('@/lib/auth/account', () => ({
     body: { error: err instanceof Error ? err.message : 'error' },
     status: 403,
   }),
-}))
+}));
 
 vi.mock('@/lib/automations/steps-tree', () => ({
   loadStepsTree: async () => [],
   replaceSteps: async () => null,
   insertSteps: async () => null,
-}))
+}));
 
 /**
  * Minimal PostgREST-shaped stub: `.eq()` accumulates filters, and a
@@ -91,13 +91,12 @@ vi.mock('@/lib/automations/steps-tree', () => ({
  * row instead of the test having to assert on call shapes.
  */
 function chain(table: string, op: string) {
-  const filters: [string, unknown][] = []
-  const matches = () =>
-    filters.every(([col, val]) => h.state.row[col] === val)
+  const filters: [string, unknown][] = [];
+  const matches = () => filters.every(([col, val]) => h.state.row[col] === val);
   const api = {
     eq(col: string, val: unknown) {
-      filters.push([col, val])
-      return api
+      filters.push([col, val]);
+      return api;
     },
     maybeSingle: async () => ({
       data: matches() ? h.state.row : null,
@@ -112,13 +111,13 @@ function chain(table: string, op: string) {
     then(resolve: (v: { data: unknown; error: null }) => unknown) {
       // Terminal `await` on an update/delete with no .select().
       if (op !== 'select' && matches()) {
-        h.state.writes.push({ table, op, filters: [...filters] })
+        h.state.writes.push({ table, op, filters: [...filters] });
       }
-      const data = op === 'select' ? null : matches() ? [h.state.row] : []
-      return Promise.resolve({ data, error: null }).then(resolve)
+      const data = op === 'select' ? null : matches() ? [h.state.row] : [];
+      return Promise.resolve({ data, error: null }).then(resolve);
     },
-  }
-  return api
+  };
+  return api;
 }
 
 vi.mock('@/lib/automations/admin-client', () => ({
@@ -132,7 +131,7 @@ vi.mock('@/lib/automations/admin-client', () => ({
           table,
           op: 'insert',
           filters: Object.entries(row),
-        })
+        });
         return {
           select: () => ({
             single: async () => ({
@@ -140,85 +139,89 @@ vi.mock('@/lib/automations/admin-client', () => ({
               error: null,
             }),
           }),
-        }
+        };
       },
     }),
   }),
-}))
+}));
 
-import { GET, PATCH, DELETE } from './route'
-import { POST as DUPLICATE } from './duplicate/route'
+import { GET, PATCH, DELETE } from './route';
+import { POST as DUPLICATE } from './duplicate/route';
 
-const params = Promise.resolve({ id: 'auto-1' })
+const params = Promise.resolve({ id: 'auto-1' });
 
 beforeEach(() => {
-  h.state.writes = []
-  h.state.callerAccountId = 'acc-new'
-})
+  h.state.writes = [];
+  h.state.callerAccountId = 'acc-new';
+});
 
 describe('automations/[id] tenancy (GHSA-xvrq-88hg-44q6)', () => {
   it('refuses a removed member who still matches user_id', async () => {
-    const get = (await GET(new Request('http://t/'), { params })) as unknown as {
-      status: number
-    }
-    expect(get.status).toBe(404)
+    const get = (await GET(new Request('http://t/'), {
+      params,
+    })) as unknown as {
+      status: number;
+    };
+    expect(get.status).toBe(404);
 
     const patch = (await PATCH(
       new Request('http://t/', {
         method: 'PATCH',
         body: JSON.stringify({ name: 'pwned' }),
       }),
-      { params },
-    )) as unknown as { status: number }
-    expect(patch.status).toBe(404)
+      { params }
+    )) as unknown as { status: number };
+    expect(patch.status).toBe(404);
 
     const del = (await DELETE(new Request('http://t/'), {
       params,
-    })) as unknown as { status: number }
-    expect(del.status).toBe(404)
+    })) as unknown as { status: number };
+    expect(del.status).toBe(404);
 
     const dup = (await DUPLICATE(new Request('http://t/', { method: 'POST' }), {
       params,
-    })) as unknown as { status: number }
-    expect(dup.status).toBe(404)
+    })) as unknown as { status: number };
+    expect(dup.status).toBe(404);
 
     // Nothing was written into the account the caller left.
-    expect(h.state.writes).toEqual([])
-  })
+    expect(h.state.writes).toEqual([]);
+  });
 
   it('still serves a member of the automation own account', async () => {
-    h.state.callerAccountId = 'acc-old'
+    h.state.callerAccountId = 'acc-old';
 
-    const get = (await GET(new Request('http://t/'), { params })) as unknown as {
-      status: number
-      body: { automation: { id: string } }
-    }
-    expect(get.status).toBe(200)
-    expect(get.body.automation.id).toBe('auto-1')
+    const get = (await GET(new Request('http://t/'), {
+      params,
+    })) as unknown as {
+      status: number;
+      body: { automation: { id: string } };
+    };
+    expect(get.status).toBe(200);
+    expect(get.body.automation.id).toBe('auto-1');
 
     const patch = (await PATCH(
       new Request('http://t/', {
         method: 'PATCH',
         body: JSON.stringify({ name: 'renamed' }),
       }),
-      { params },
-    )) as unknown as { status: number }
-    expect(patch.status).toBe(200)
+      { params }
+    )) as unknown as { status: number };
+    expect(patch.status).toBe(200);
 
     const dup = (await DUPLICATE(new Request('http://t/', { method: 'POST' }), {
       params,
-    })) as unknown as { status: number }
-    expect(dup.status).toBe(201)
-  })
+    })) as unknown as { status: number };
+    expect(dup.status).toBe(201);
+  });
 
   it('deletes exactly the caller account row', async () => {
-    h.state.callerAccountId = 'acc-old'
+    h.state.callerAccountId = 'acc-old';
 
     const del = (await DELETE(new Request('http://t/'), {
       params,
-    })) as unknown as { status: number; body: unknown }
-    expect(del.status).toBe(200)
-    expect(del.body).toEqual({ ok: true })
+    })) as unknown as { status: number; body: unknown };
+    expect(del.status).toBe(200);
+    expect(del.body).toEqual({ ok: true });
     expect(h.state.writes).toEqual([
       {
         table: 'automations',
@@ -228,16 +231,16 @@ describe('automations/[id] tenancy (GHSA-xvrq-88hg-44q6)', () => {
           ['account_id', 'acc-old'],
         ],
       },
-    ])
-  })
+    ]);
+  });
 
   it('clones into the caller account, never the row stored account', async () => {
-    h.state.callerAccountId = 'acc-old'
-    await DUPLICATE(new Request('http://t/', { method: 'POST' }), { params })
+    h.state.callerAccountId = 'acc-old';
+    await DUPLICATE(new Request('http://t/', { method: 'POST' }), { params });
     const insert = h.state.writes.find(
-      (w) => w.table === 'automations' && w.op === 'insert',
-    )
-    expect(insert).toBeDefined()
-    expect(insert!.filters).toContainEqual(['account_id', 'acc-old'])
-  })
-})
+      (w) => w.table === 'automations' && w.op === 'insert'
+    );
+    expect(insert).toBeDefined();
+    expect(insert!.filters).toContainEqual(['account_id', 'acc-old']);
+  });
+});

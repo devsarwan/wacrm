@@ -84,7 +84,7 @@ type MetaSendParameter =
 
 function buildHeaderComponent(
   template: MessageTemplate,
-  params: SendTimeParams,
+  params: SendTimeParams
 ): MetaSendComponent | null {
   const headerType = template.header_type;
   if (!headerType) return null;
@@ -97,9 +97,7 @@ function buildHeaderComponent(
     if (!key) return null;
     const value = params.headerText;
     if (!value || !value.trim()) {
-      throw new Error(
-        t('headerTextValueRequired', { var: `{{${key}}}` }),
-      );
+      throw new Error(t('headerTextValueRequired', { var: `{{${key}}}` }));
     }
     return {
       type: 'header',
@@ -119,9 +117,7 @@ function buildHeaderComponent(
   const link = params.headerMediaUrl ?? template.header_media_url;
   const id = params.headerMediaId;
   if (!link && !id) {
-    throw new Error(
-      t('mediaHeaderSendSource', { type: headerType }),
-    );
+    throw new Error(t('mediaHeaderSendSource', { type: headerType }));
   }
   const mediaPayload: { link?: string; id?: string } = id ? { id } : { link };
   return {
@@ -138,7 +134,7 @@ function buildHeaderComponent(
 
 function buildBodyComponent(
   template: MessageTemplate,
-  params: SendTimeParams,
+  params: SendTimeParams
 ): MetaSendComponent | null {
   const keys = extractTemplateVariables(template.body_text);
   const varCount = keys.length;
@@ -146,7 +142,7 @@ function buildBodyComponent(
   if (varCount === 0 && body.length === 0) return null;
   if (body.length < varCount) {
     throw new Error(
-      t('bodyValuesMissing', { count: varCount, got: body.length }),
+      t('bodyValuesMissing', { count: varCount, got: body.length })
     );
   }
   // Trim to the variable count — extra values are dropped silently so
@@ -167,7 +163,7 @@ function textParameter(key: string, text: string): MetaSendParameter {
 
 function buttonNeedsSendParam(
   button: TemplateButton,
-  override: string | undefined,
+  override: string | undefined
 ): boolean {
   switch (button.type) {
     case 'URL':
@@ -186,7 +182,7 @@ function buttonNeedsSendParam(
 function buildButtonComponent(
   button: TemplateButton,
   index: number,
-  override: string | undefined,
+  override: string | undefined
 ): MetaSendComponent | null {
   if (!buttonNeedsSendParam(button, override)) return null;
 
@@ -196,7 +192,7 @@ function buildButtonComponent(
       // the button's index in the template's buttons array.
       if (!override || !override.trim()) {
         throw new Error(
-          t('urlButtonParamRequired', { n: index + 1, var: '{{1}}', index }),
+          t('urlButtonParamRequired', { n: index + 1, var: '{{1}}', index })
         );
       }
       return {
@@ -239,7 +235,7 @@ function buildButtonComponent(
  */
 export function buildSendComponents(
   template: MessageTemplate,
-  params: SendTimeParams = {},
+  params: SendTimeParams = {}
 ): MetaSendComponent[] {
   const out: MetaSendComponent[] = [];
   const header = buildHeaderComponent(template, params);

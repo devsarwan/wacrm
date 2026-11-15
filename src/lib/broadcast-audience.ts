@@ -26,7 +26,10 @@ export interface AudienceConfig {
   excludeTagIds?: string[];
 }
 
-async function withContext<T>(label: string, run: () => Promise<T>): Promise<T> {
+async function withContext<T>(
+  label: string,
+  run: () => Promise<T>
+): Promise<T> {
   try {
     return await run();
   } catch (err) {
@@ -37,7 +40,7 @@ async function withContext<T>(label: string, run: () => Promise<T>): Promise<T> 
 
 export function fetchTaggedContactIds(
   db: SupabaseClient,
-  tagIds: readonly string[],
+  tagIds: readonly string[]
 ): Promise<Set<string>> {
   return withContext('contact tags', async () => {
     const rows = await fetchAllInChunks<{ contact_id: string }, string>(
@@ -48,7 +51,7 @@ export function fetchTaggedContactIds(
           .select('contact_id')
           .in('tag_id', slice)
           .order('id')
-          .range(from, to),
+          .range(from, to)
     );
     return new Set(rows.map((row) => row.contact_id));
   });
@@ -56,7 +59,7 @@ export function fetchTaggedContactIds(
 
 export function fetchCustomFieldContactIds(
   db: SupabaseClient,
-  filter: CustomFieldFilter,
+  filter: CustomFieldFilter
 ): Promise<Set<string>> {
   return withContext('custom field matches', async () => {
     const { fieldId, operator, value } = filter;
@@ -76,26 +79,31 @@ export function fetchCustomFieldContactIds(
 
 export function fetchContactsByIds(
   db: SupabaseClient,
-  ids: readonly string[],
+  ids: readonly string[]
 ): Promise<Contact[]> {
   return withContext('contacts', () =>
     fetchAllInChunks<Contact, string>(ids, (slice, from, to) =>
-      db.from('contacts').select('*').in('id', slice).order('id').range(from, to),
-    ),
+      db
+        .from('contacts')
+        .select('*')
+        .in('id', slice)
+        .order('id')
+        .range(from, to)
+    )
   );
 }
 
 export function fetchAllContacts(db: SupabaseClient): Promise<Contact[]> {
   return withContext('contacts', () =>
     fetchAllPages<Contact>((from, to) =>
-      db.from('contacts').select('*').order('id').range(from, to),
-    ),
+      db.from('contacts').select('*').order('id').range(from, to)
+    )
   );
 }
 
 async function fetchExcludedIds(
   db: SupabaseClient,
-  audience: AudienceConfig,
+  audience: AudienceConfig
 ): Promise<Set<string>> {
   if (!audience.excludeTagIds || audience.excludeTagIds.length === 0) {
     return new Set();
@@ -104,16 +112,20 @@ async function fetchExcludedIds(
 }
 
 function hasCustomFieldFilter(
-  audience: AudienceConfig,
+  audience: AudienceConfig
 ): audience is AudienceConfig & { customField: CustomFieldFilter } {
   return Boolean(audience.customField?.fieldId);
 }
 
 async function fetchAudienceContactIds(
   db: SupabaseClient,
-  audience: AudienceConfig,
+  audience: AudienceConfig
 ): Promise<Set<string> | null> {
-  if (audience.type === 'tags' && audience.tagIds && audience.tagIds.length > 0) {
+  if (
+    audience.type === 'tags' &&
+    audience.tagIds &&
+    audience.tagIds.length > 0
+  ) {
     return fetchTaggedContactIds(db, audience.tagIds);
   }
   if (audience.type === 'custom_field' && hasCustomFieldFilter(audience)) {
@@ -125,7 +137,7 @@ async function fetchAudienceContactIds(
 export async function resolveAudienceContacts(
   db: SupabaseClient,
   audience: AudienceConfig,
-  resolveCsv: (rows: CsvAudienceRow[]) => Promise<Contact[]>,
+  resolveCsv: (rows: CsvAudienceRow[]) => Promise<Contact[]>
 ): Promise<Contact[]> {
   const excluded = await fetchExcludedIds(db, audience);
   const keep = (contact: Contact) => !excluded.has(contact.id);
@@ -147,7 +159,7 @@ export async function resolveAudienceContacts(
 
 export async function countAudience(
   db: SupabaseClient,
-  audience: AudienceConfig,
+  audience: AudienceConfig
 ): Promise<number | null> {
   if (audience.type === 'csv') {
     return audience.csvContacts && audience.csvContacts.length > 0

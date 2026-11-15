@@ -27,5 +27,8 @@ export function pageAfterRangeError(
   if (error.code !== RANGE_NOT_SATISFIABLE) return null;
   const total = error.details?.match(/only (\d+) rows?/)?.[1];
   if (total === undefined) return Math.max(0, page - 1);
-  return Math.min(Math.max(0, page - 1), lastPageIndex(Number(total), pageSize));
+  return Math.min(
+    Math.max(0, page - 1),
+    lastPageIndex(Number(total), pageSize)
+  );
 }

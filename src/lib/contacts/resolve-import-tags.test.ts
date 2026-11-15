@@ -39,7 +39,10 @@ function fakeTagsDb(options: {
             return query;
           },
           then: (resolve: (v: { data: TagRow[]; error: null }) => void) =>
-            resolve({ data: options.lookups[lookupIndex++] ?? [], error: null }),
+            resolve({
+              data: options.lookups[lookupIndex++] ?? [],
+              error: null,
+            }),
         };
         return query;
       },
@@ -83,9 +86,15 @@ function fakeTagsDb(options: {
             return query;
           },
           then: (
-            resolve: (v: { data: { contact_id: string }[]; error: null }) => void
+            resolve: (v: {
+              data: { contact_id: string }[];
+              error: null;
+            }) => void
           ) => {
-            const links = (options.linksByTagId?.[tagId] ?? []).slice(from, to + 1);
+            const links = (options.linksByTagId?.[tagId] ?? []).slice(
+              from,
+              to + 1
+            );
             calls.events.push(`read-links:${tagId}`);
             resolve({
               data: links.map((contactId) => ({ contact_id: contactId })),

@@ -33,7 +33,9 @@ export async function GET(request: Request) {
     const ctx = await requireApiKey(request, 'contacts:read');
     const { limit, cursor } = parseListParams(request);
     const url = new URL(request.url);
-    const searchFilter = contactSearchFilter(url.searchParams.get('search') ?? '');
+    const searchFilter = contactSearchFilter(
+      url.searchParams.get('search') ?? ''
+    );
     const tag = url.searchParams.get('tag');
     if (tag && !isUuid(tag)) {
       return fail('bad_request', "'tag' must be a tag id (UUID)", 400);

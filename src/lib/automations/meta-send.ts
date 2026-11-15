@@ -1,25 +1,25 @@
-import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/meta-api'
-import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
+import { sendTextMessage, sendTemplateMessage } from '@/lib/whatsapp/meta-api';
+import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive';
 import {
   engineSendInteractiveButtons,
   engineSendInteractiveList,
-} from '@/lib/flows/meta-send'
-import { decrypt } from '@/lib/whatsapp/encryption'
+} from '@/lib/flows/meta-send';
+import { decrypt } from '@/lib/whatsapp/encryption';
 import {
   phoneVariants,
   isRecipientNotAllowedError,
-} from '@/lib/whatsapp/phone-utils'
-import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity'
-import { assertConversationInAccount } from '@/lib/whatsapp/conversation-scope'
+} from '@/lib/whatsapp/phone-utils';
+import { resolveContactSendTarget } from '@/lib/whatsapp/wa-identity';
+import { assertConversationInAccount } from '@/lib/whatsapp/conversation-scope';
 import {
   resolveTemplateRow,
   templateContentText,
   templateHeaderMediaUrl,
-} from '@/lib/whatsapp/template-body'
-import { supabaseAdmin } from './admin-client'
-import { getT } from '@/lib/i18n/translate'
+} from '@/lib/whatsapp/template-body';
+import { supabaseAdmin } from './admin-client';
+import { getT } from '@/lib/i18n/translate';
 
-const t = getT('LibErrors')
+const t = getT('LibErrors');
 
 // ------------------------------------------------------------
 // Automation-side Meta sender.
@@ -36,42 +36,44 @@ interface SendTextArgs {
   /** Account-level tenancy key. Drives contact + whatsapp_config
    *  lookups so an automation authored by user A still sends through
    *  the WhatsApp number user B saved on the same account. */
-  accountId: string
+  accountId: string;
   /** Original author of the automation/flow — used for INSERT audit
    *  columns (messages.sender_id-ish) and for resolving the agent's
    *  identity in logs. Not consulted for tenancy. */
-  userId: string
-  conversationId: string
-  contactId: string
-  text: string
+  userId: string;
+  conversationId: string;
+  contactId: string;
+  text: string;
 }
 
 interface SendTemplateArgs {
-  accountId: string
-  userId: string
-  conversationId: string
-  contactId: string
-  templateName: string
-  language?: string
-  params?: string[]
+  accountId: string;
+  userId: string;
+  conversationId: string;
+  contactId: string;
+  templateName: string;
+  language?: string;
+  params?: string[];
 }
 
-export async function engineSendText(args: SendTextArgs): Promise<{ whatsapp_message_id: string }> {
-  return sendViaMeta({ ...args, kind: 'text' })
+export async function engineSendText(
+  args: SendTextArgs
+): Promise<{ whatsapp_message_id: string }> {
+  return sendViaMeta({ ...args, kind: 'text' });
 }
 
 export async function engineSendTemplate(
-  args: SendTemplateArgs,
+  args: SendTemplateArgs
 ): Promise<{ whatsapp_message_id: string }> {
-  return sendViaMeta({ ...args, kind: 'template' })
+  return sendViaMeta({ ...args, kind: 'template' });
 }
 
 interface SendInteractiveArgs {
-  accountId: string
-  userId: string
-  conversationId: string
-  contactId: string
-  payload: InteractiveMessagePayload
+  accountId: string;
+  userId: string;
+  conversationId: string;
+  contactId: string;
+  payload: InteractiveMessagePayload;
 }
 
 /**
@@ -86,10 +88,10 @@ interface SendInteractiveArgs {
  * implementation rather than a second hand-rolled copy that could drift.
  */
 export async function engineSendInteractive(
-  args: SendInteractiveArgs,
+  args: SendInteractiveArgs
 ): Promise<{ whatsapp_message_id: string }> {
-  const { payload, accountId, userId, conversationId, contactId } = args
-  const common = { accountId, userId, conversationId, contactId }
+  const { payload, accountId, userId, conversationId, contactId } = args;
+  const common = { accountId, userId, conversationId, contactId };
   if (payload.kind === 'buttons') {
     return engineSendInteractiveButtons({
       ...common,
@@ -97,7 +99,7 @@ export async function engineSendInteractive(
       headerText: payload.header,
       footerText: payload.footer,
       buttons: payload.buttons,
-    })
+    });
   }
   return engineSendInteractiveList({
     ...common,
@@ -106,15 +108,16 @@ export async function engineSendInteractive(
     headerText: payload.header,
     footerText: payload.footer,
     sections: payload.sections,
-  })
+  });
 }
 
 type SendInput =
-  | (SendTextArgs & { kind: 'text' })
-  | (SendTemplateArgs & { kind: 'template' })
+  (SendTextArgs & { kind: 'text' }) | (SendTemplateArgs & { kind: 'template' });
 
-async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: string }> {
-  const db = supabaseAdmin()
+async function sendViaMeta(
+  input: SendInput
+): Promise<{ whatsapp_message_id: string }> {
+  const db = supabaseAdmin();
 
   // Scope the contact + config lookups by account_id, not user_id.
   // The engine uses the service-role client (bypassing RLS); without
@@ -129,35 +132,35 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     .select('id, phone, wa_user_id')
     .eq('id', input.contactId)
     .eq('account_id', input.accountId)
-    .maybeSingle()
+    .maybeSingle();
   if (contactErr || !contact) {
-    throw new Error(t('send.contactNotFound'))
+    throw new Error(t('send.contactNotFound'));
   }
 
   // Same for the conversation the message lands in — see
   // conversation-scope.ts (GHSA-m4fx-g6pr-hrw8).
-  await assertConversationInAccount(db, input.conversationId, input.accountId)
+  await assertConversationInAccount(db, input.conversationId, input.accountId);
 
   // Phone number, or the business-scoped user ID when Meta has never
   // given us a number for this customer (issue #519).
-  const sendTarget = resolveContactSendTarget(contact)
+  const sendTarget = resolveContactSendTarget(contact);
   if (!sendTarget) {
     throw new Error(
       t('send.noWhatsAppAddress', { phone: contact.phone || t('send.none') })
-    )
+    );
   }
-  const sanitized = sendTarget.target
+  const sanitized = sendTarget.target;
 
   const { data: config, error: configErr } = await db
     .from('whatsapp_config')
     .select('*')
     .eq('account_id', input.accountId)
-    .single()
+    .single();
   if (configErr || !config) {
-    throw new Error(t('send.notConfigured'))
+    throw new Error(t('send.notConfigured'));
   }
 
-  const accessToken = decrypt(config.access_token)
+  const accessToken = decrypt(config.access_token);
 
   // Local template row. A missing row is fine: the send still goes
   // out, we just can't reconstruct the text the customer saw.
@@ -168,10 +171,10 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
             db,
             input.accountId,
             input.templateName,
-            input.language,
+            input.language
           )
         ).row
-      : null
+      : null;
 
   const attempt = async (phone: string): Promise<string> => {
     if (input.kind === 'template') {
@@ -183,55 +186,58 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
         language: input.language,
         template: templateRow ?? undefined,
         params: input.params,
-      })
-      return r.messageId
+      });
+      return r.messageId;
     }
     const r = await sendTextMessage({
       phoneNumberId: config.phone_number_id,
       accessToken,
       to: phone,
       text: input.text,
-    })
-    return r.messageId
-  }
+    });
+    return r.messageId;
+  };
 
   // Same phone-variant retry as /api/whatsapp/send — Meta sandbox and
   // numbers registered with/without a trunk 0 both require this to
   // reliably land a message.
-  const variants = sendTarget.isPhone ? phoneVariants(sanitized) : [sanitized]
-  let workingPhone = sanitized
-  let waMessageId = ''
-  let lastError: unknown = null
+  const variants = sendTarget.isPhone ? phoneVariants(sanitized) : [sanitized];
+  let workingPhone = sanitized;
+  let waMessageId = '';
+  let lastError: unknown = null;
   for (const v of variants) {
     try {
-      waMessageId = await attempt(v)
-      workingPhone = v
-      lastError = null
-      break
+      waMessageId = await attempt(v);
+      workingPhone = v;
+      lastError = null;
+      break;
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      if (!isRecipientNotAllowedError(msg)) throw err
-      lastError = err
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!isRecipientNotAllowedError(msg)) throw err;
+      lastError = err;
     }
   }
-  if (lastError) throw lastError
+  if (lastError) throw lastError;
 
   if (sendTarget.isPhone && workingPhone !== sanitized) {
-    await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)
+    await db
+      .from('contacts')
+      .update({ phone: workingPhone })
+      .eq('id', contact.id);
   }
 
   // Persist the sent message so it appears in the inbox with a real
   // Meta message id. sender_type='bot' distinguishes automation sends
   // from manual agent sends.
-  const content_type = input.kind === 'template' ? 'template' : 'text'
+  const content_type = input.kind === 'template' ? 'template' : 'text';
   // Templates persist the substituted body, same as the manual and
   // public-API send paths. This was unconditionally null, so every
   // automation template send rendered as an empty bubble (issue #483).
   const content_text =
     input.kind === 'text'
       ? input.text
-      : templateContentText(templateRow, input.params ?? [])
-  const template_name = input.kind === 'template' ? input.templateName : null
+      : templateContentText(templateRow, input.params ?? []);
+  const template_name = input.kind === 'template' ? input.templateName : null;
 
   const { error: msgErr } = await db.from('messages').insert({
     conversation_id: input.conversationId,
@@ -242,11 +248,11 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     template_name,
     message_id: waMessageId,
     status: 'sent',
-  })
+  });
   if (msgErr) {
     // Meta already has the message; record the DB error but don't pretend
     // the send failed. The engine wraps this in a log line.
-    throw new Error(t('send.dbInsertFailed', { message: msgErr.message }))
+    throw new Error(t('send.dbInsertFailed', { message: msgErr.message }));
   }
 
   await db
@@ -260,7 +266,7 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
       updated_at: new Date().toISOString(),
     })
     .eq('id', input.conversationId)
-    .eq('account_id', input.accountId)
+    .eq('account_id', input.accountId);
 
-  return { whatsapp_message_id: waMessageId }
+  return { whatsapp_message_id: waMessageId };
 }

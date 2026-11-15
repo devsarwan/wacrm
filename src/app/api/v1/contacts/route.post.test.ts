@@ -41,7 +41,9 @@ describe('POST /api/v1/contacts tags', () => {
   it('adds the requested tags to an existing contact without removing others', async () => {
     mocks.findOrCreateContact.mockResolvedValue({ id: 'c1', created: false });
 
-    const res = await POST(createRequest({ phone: '+14155550123', tags: ['vip'] }));
+    const res = await POST(
+      createRequest({ phone: '+14155550123', tags: ['vip'] })
+    );
 
     expect(res.status).toBe(200);
     expect(mocks.addContactTags).toHaveBeenCalledWith(
@@ -57,7 +59,9 @@ describe('POST /api/v1/contacts tags', () => {
   it('sets the tags of a newly created contact', async () => {
     mocks.findOrCreateContact.mockResolvedValue({ id: 'c2', created: true });
 
-    const res = await POST(createRequest({ phone: '+14155550123', tags: ['vip', 1] }));
+    const res = await POST(
+      createRequest({ phone: '+14155550123', tags: ['vip', 1] })
+    );
 
     expect(res.status).toBe(201);
     expect(mocks.setContactTags).toHaveBeenCalledWith(

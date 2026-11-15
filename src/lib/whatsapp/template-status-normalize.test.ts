@@ -34,7 +34,14 @@ describe('templateStatusFromWebhookEvent', () => {
     expect(templateStatusFromWebhookEvent('DELETED')).toBe('PENDING_DELETION');
   });
   it('returns null for events that are not a status change', () => {
-    for (const event of ['FLAGGED', 'LIMIT_EXCEEDED', 'LOCKED', 'ARCHIVED', 'NEW_THING', '']) {
+    for (const event of [
+      'FLAGGED',
+      'LIMIT_EXCEEDED',
+      'LOCKED',
+      'ARCHIVED',
+      'NEW_THING',
+      '',
+    ]) {
       expect(templateStatusFromWebhookEvent(event)).toBeNull();
     }
   });

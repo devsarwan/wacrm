@@ -18,7 +18,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { BroadcastError, type BroadcastPlan } from '@/lib/whatsapp/broadcast-core';
+import {
+  BroadcastError,
+  type BroadcastPlan,
+} from '@/lib/whatsapp/broadcast-core';
 import { DELIVERY_LOCK_STALE_MS } from '@/lib/whatsapp/broadcast-delivery-lease';
 import { chunk } from '@/lib/supabase/paged-query';
 import { decrypt } from '@/lib/whatsapp/encryption';
@@ -72,7 +75,10 @@ export async function claimBroadcastDelivery(
 
   const { data, error } = await db
     .from('broadcasts')
-    .update({ delivery_locked_at: now.toISOString(), delivery_lease_until: null })
+    .update({
+      delivery_locked_at: now.toISOString(),
+      delivery_lease_until: null,
+    })
     .eq('id', broadcastId)
     .eq('account_id', accountId)
     .or(
@@ -171,7 +177,9 @@ export async function planBroadcastResume(
       error: recError,
     } = await db
       .from('broadcast_recipients')
-      .select('id, template_params, contact:contacts(phone)', { count: 'exact' })
+      .select('id, template_params, contact:contacts(phone)', {
+        count: 'exact',
+      })
       .eq('broadcast_id', broadcastId)
       .in('status', statuses)
       // Oldest first, so repeated capped passes chew through the backlog
@@ -181,7 +189,10 @@ export async function planBroadcastResume(
       .range(from, from + RESUME_MAX_PER_REQUEST - 1);
 
     if (recError) {
-      console.error('[broadcast-resume] recipient load failed:', recError.message);
+      console.error(
+        '[broadcast-resume] recipient load failed:',
+        recError.message
+      );
       throw new BroadcastError('internal', 'Failed to load recipients', 500);
     }
 

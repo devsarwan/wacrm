@@ -1,26 +1,30 @@
-import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server';
 import {
   ForbiddenError,
   UnauthorizedError,
   requireRole,
   toErrorResponse,
-} from '@/lib/auth/account'
-import { decrypt } from '@/lib/whatsapp/encryption'
+} from '@/lib/auth/account';
+import { decrypt } from '@/lib/whatsapp/encryption';
 import {
   deleteMessageTemplate,
   editMessageTemplate,
-} from '@/lib/whatsapp/meta-api'
+} from '@/lib/whatsapp/meta-api';
 import {
   validateTemplatePayload,
   type TemplatePayload,
-} from '@/lib/whatsapp/template-validators'
-import { buildMetaTemplatePayload } from '@/lib/whatsapp/template-components'
-import { ensureMediaHeaderHandle } from '@/lib/whatsapp/template-header-handle'
-import { canEditTemplateCategory } from '@/lib/whatsapp/template-category-edit'
-import { checkRateLimit, rateLimitResponse, RATE_LIMITS } from '@/lib/rate-limit'
-import { getT } from '@/lib/i18n/translate'
+} from '@/lib/whatsapp/template-validators';
+import { buildMetaTemplatePayload } from '@/lib/whatsapp/template-components';
+import { ensureMediaHeaderHandle } from '@/lib/whatsapp/template-header-handle';
+import { canEditTemplateCategory } from '@/lib/whatsapp/template-category-edit';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
+import { getT } from '@/lib/i18n/translate';
 
-const t = getT('Api')
+const t = getT('Api');
 
 /**
  * Per-template lifecycle endpoint.
@@ -45,45 +49,51 @@ const t = getT('Api')
  * the remote edit or delete through and only the local write bounced.
  */
 
-const EDITABLE_STATUSES = new Set(['APPROVED', 'REJECTED', 'PAUSED'])
+const EDITABLE_STATUSES = new Set(['APPROVED', 'REJECTED', 'PAUSED']);
 
 // uuid v4 plus the looser shape Postgres gen_random_uuid emits.
 // We don't need exhaustive RFC parsing — just enough to reject
 // "../etc/passwd"-style payloads before they hit Supabase.
 const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function isDryRun(): boolean {
   return (
     process.env.WHATSAPP_TEMPLATES_DRY_RUN === 'true' ||
     process.env.WHATSAPP_TEMPLATES_DRY_RUN === '1'
-  )
+  );
 }
 
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ id: string }> },
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params
+    const { id } = await context.params;
     if (!UUID_RE.test(id)) {
       return NextResponse.json(
         { error: t('templates.invalidId') },
-        { status: 400 },
-      )
+        { status: 400 }
+      );
     }
     // Editing a template pushes a component replacement to Meta before
     // anything is written locally, so the role has to be checked here.
-    const { supabase, accountId, userId } = await requireRole('admin')
+    const { supabase, accountId, userId } = await requireRole('admin');
 
-    const limit = checkRateLimit(`whatsapp-admin:${userId}`, RATE_LIMITS.whatsappAdmin)
-    if (!limit.success) return rateLimitResponse(limit)
+    const limit = checkRateLimit(
+      `whatsapp-admin:${userId}`,
+      RATE_LIMITS.whatsappAdmin
+    );
+    if (!limit.success) return rateLimitResponse(limit);
 
-    let payload: TemplatePayload
+    let payload: TemplatePayload;
     try {
-      payload = (await request.json()) as TemplatePayload
+      payload = (await request.json()) as TemplatePayload;
     } catch {
-      return NextResponse.json({ error: t('templates.invalidJsonBody') }, { status: 400 })
+      return NextResponse.json(
+        { error: t('templates.invalidJsonBody') },
+        { status: 400 }
+      );
     }
 
     // RLS handles ownership, but we need the existing row to read
@@ -93,55 +103,61 @@ export async function PATCH(
       .select('id, name, status, category, meta_template_id, language')
       .eq('id', id)
       .eq('account_id', accountId)
-      .maybeSingle()
+      .maybeSingle();
     if (lookupErr || !existing) {
-      return NextResponse.json({ error: t('templates.notFound') }, { status: 404 })
+      return NextResponse.json(
+        { error: t('templates.notFound') },
+        { status: 404 }
+      );
     }
 
     if (!existing.meta_template_id) {
       return NextResponse.json(
         {
-          error:
-            t('templates.neverSubmitted'),
+          error: t('templates.neverSubmitted'),
         },
-        { status: 400 },
-      )
+        { status: 400 }
+      );
     }
 
     if (!EDITABLE_STATUSES.has(existing.status)) {
       return NextResponse.json(
         {
-          error: t('templates.statusNotEditable', { status: String(existing.status) }),
+          error: t('templates.statusNotEditable', {
+            status: String(existing.status),
+          }),
         },
-        { status: 400 },
-      )
+        { status: 400 }
+      );
     }
 
     if (payload.category === 'Authentication') {
       return NextResponse.json(
         {
-          error:
-            t('templates.authNotEditable'),
+          error: t('templates.authNotEditable'),
         },
-        { status: 400 },
-      )
+        { status: 400 }
+      );
     }
 
     try {
-      validateTemplatePayload(payload)
+      validateTemplatePayload(payload);
     } catch (e) {
       return NextResponse.json(
-        { error: e instanceof Error ? e.message : t('templates.validationFailed') },
-        { status: 400 },
-      )
+        {
+          error:
+            e instanceof Error ? e.message : t('templates.validationFailed'),
+        },
+        { status: 400 }
+      );
     }
 
-    const categoryChanged = payload.category !== existing.category
+    const categoryChanged = payload.category !== existing.category;
     if (categoryChanged && !canEditTemplateCategory(existing.status)) {
       return NextResponse.json(
         { error: t('templates.categoryLockedApproved') },
-        { status: 400 },
-      )
+        { status: 400 }
+      );
     }
 
     if (!isDryRun()) {
@@ -149,37 +165,43 @@ export async function PATCH(
         .from('whatsapp_config')
         .select('*')
         .eq('account_id', accountId)
-        .single()
+        .single();
       if (configError || !config) {
         return NextResponse.json(
           { error: t('common.whatsappNotConfiguredDot') },
-          { status: 400 },
-        )
+          { status: 400 }
+        );
       }
-      const accessToken = decrypt(config.access_token)
+      const accessToken = decrypt(config.access_token);
 
       // Media headers (image/video/document) need a fresh Resumable-Upload
       // handle on every edit (Meta replaces components wholesale). Derive
       // from header_media_url.
       try {
-        await ensureMediaHeaderHandle(payload, accessToken)
+        await ensureMediaHeaderHandle(payload, accessToken);
       } catch (e) {
         return NextResponse.json(
-          { error: e instanceof Error ? e.message : t('templates.headerUploadFailed') },
-          { status: 400 },
-        )
+          {
+            error:
+              e instanceof Error
+                ? e.message
+                : t('templates.headerUploadFailed'),
+          },
+          { status: 400 }
+        );
       }
 
-      const metaPayload = buildMetaTemplatePayload(payload)
+      const metaPayload = buildMetaTemplatePayload(payload);
       try {
         await editMessageTemplate({
           metaTemplateId: existing.meta_template_id,
           accessToken,
           components: metaPayload.components,
           category: categoryChanged ? metaPayload.category : undefined,
-        })
+        });
       } catch (e) {
-        const message = e instanceof Error ? e.message : t('templates.metaEditFailed')
+        const message =
+          e instanceof Error ? e.message : t('templates.metaEditFailed');
         await supabase
           .from('message_templates')
           .update({
@@ -187,8 +209,8 @@ export async function PATCH(
             last_submitted_at: new Date().toISOString(),
           })
           .eq('id', id)
-          .eq('account_id', accountId)
-        return NextResponse.json({ error: message }, { status: 502 })
+          .eq('account_id', accountId);
+        return NextResponse.json({ error: message }, { status: 502 });
       }
     }
 
@@ -213,64 +235,70 @@ export async function PATCH(
       .eq('id', id)
       .eq('account_id', accountId)
       .select()
-      .single()
+      .single();
 
     if (updErr) {
       return NextResponse.json(
         {
           error: t('templates.editedSaveFailed', { message: updErr.message }),
         },
-        { status: 500 },
-      )
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
       success: true,
       template: row,
       dry_run: isDryRun(),
-    })
+    });
   } catch (error) {
     if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {
-      return toErrorResponse(error)
+      return toErrorResponse(error);
     }
-    console.error('Error editing template:', error)
+    console.error('Error editing template:', error);
     return NextResponse.json(
       {
         error:
           error instanceof Error ? error.message : t('templates.editFailed'),
       },
-      { status: 500 },
-    )
+      { status: 500 }
+    );
   }
 }
 
 export async function DELETE(
   _request: Request,
-  context: { params: Promise<{ id: string }> },
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await context.params
+    const { id } = await context.params;
     if (!UUID_RE.test(id)) {
       return NextResponse.json(
         { error: t('templates.invalidId') },
-        { status: 400 },
-      )
+        { status: 400 }
+      );
     }
     // Deleting removes the template on Meta first; same reasoning as
     // the PATCH handler above.
-    const { supabase, accountId, userId } = await requireRole('admin')
+    const { supabase, accountId, userId } = await requireRole('admin');
 
-    const limit = checkRateLimit(`whatsapp-admin:${userId}`, RATE_LIMITS.whatsappAdmin)
-    if (!limit.success) return rateLimitResponse(limit)
+    const limit = checkRateLimit(
+      `whatsapp-admin:${userId}`,
+      RATE_LIMITS.whatsappAdmin
+    );
+    if (!limit.success) return rateLimitResponse(limit);
 
     const { data: existing, error: lookupErr } = await supabase
       .from('message_templates')
       .select('id, name, meta_template_id')
       .eq('id', id)
       .eq('account_id', accountId)
-      .maybeSingle()
+      .maybeSingle();
     if (lookupErr || !existing) {
-      return NextResponse.json({ error: t('templates.notFound') }, { status: 404 })
+      return NextResponse.json(
+        { error: t('templates.notFound') },
+        { status: 404 }
+      );
     }
 
     if (existing.meta_template_id && !isDryRun()) {
@@ -278,24 +306,25 @@ export async function DELETE(
         .from('whatsapp_config')
         .select('*')
         .eq('account_id', accountId)
-        .single()
+        .single();
       if (configError || !config || !config.waba_id) {
         return NextResponse.json(
           { error: t('templates.notConfiguredDelete') },
-          { status: 400 },
-        )
+          { status: 400 }
+        );
       }
-      const accessToken = decrypt(config.access_token)
+      const accessToken = decrypt(config.access_token);
       try {
         await deleteMessageTemplate({
           wabaId: config.waba_id,
           accessToken,
           name: existing.name,
           metaTemplateId: existing.meta_template_id,
-        })
+        });
       } catch (e) {
-        const message = e instanceof Error ? e.message : t('templates.metaDeleteFailed')
-        return NextResponse.json({ error: message }, { status: 502 })
+        const message =
+          e instanceof Error ? e.message : t('templates.metaDeleteFailed');
+        return NextResponse.json({ error: message }, { status: 502 });
       }
     }
 
@@ -303,28 +332,28 @@ export async function DELETE(
       .from('message_templates')
       .delete()
       .eq('id', id)
-      .eq('account_id', accountId)
+      .eq('account_id', accountId);
     if (delErr) {
       return NextResponse.json(
         {
           error: t('templates.deletedLocalFailed', { message: delErr.message }),
         },
-        { status: 500 },
-      )
+        { status: 500 }
+      );
     }
 
-    return NextResponse.json({ success: true, dry_run: isDryRun() })
+    return NextResponse.json({ success: true, dry_run: isDryRun() });
   } catch (error) {
     if (error instanceof UnauthorizedError || error instanceof ForbiddenError) {
-      return toErrorResponse(error)
+      return toErrorResponse(error);
     }
-    console.error('Error deleting template:', error)
+    console.error('Error deleting template:', error);
     return NextResponse.json(
       {
         error:
           error instanceof Error ? error.message : t('templates.deleteFailed'),
       },
-      { status: 500 },
-    )
+      { status: 500 }
+    );
   }
 }

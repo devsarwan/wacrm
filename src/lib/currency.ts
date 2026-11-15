@@ -10,10 +10,10 @@
  * nothing is known.
  */
 
-import { getT } from "@/lib/i18n/translate";
+import { getT } from '@/lib/i18n/translate';
 
 /** App-wide fallback when no account/deal currency is available. */
-export const DEFAULT_CURRENCY = "USD";
+export const DEFAULT_CURRENCY = 'USD';
 
 export interface CurrencyOption {
   /** ISO-4217 code, e.g. "USD". Stored verbatim in the DB. */
@@ -24,7 +24,7 @@ export interface CurrencyOption {
   symbol: string;
 }
 
-const t = getT("Currency");
+const t = getT('Currency');
 
 /**
  * The currencies offered in pickers. Codes must be valid ISO-4217 so
@@ -32,21 +32,21 @@ const t = getT("Currency");
  * list to offer more — nothing else needs to change.
  */
 export const CURRENCIES: CurrencyOption[] = [
-  { code: "USD", label: t("USD"), symbol: "$" },
-  { code: "EUR", label: t("EUR"), symbol: "€" },
-  { code: "GBP", label: t("GBP"), symbol: "£" },
-  { code: "INR", label: t("INR"), symbol: "₹" },
-  { code: "AUD", label: t("AUD"), symbol: "A$" },
-  { code: "CAD", label: t("CAD"), symbol: "C$" },
-  { code: "BRL", label: t("BRL"), symbol: "R$" },
-  { code: "JPY", label: t("JPY"), symbol: "¥" },
-  { code: "CNY", label: t("CNY"), symbol: "¥" },
-  { code: "AED", label: t("AED"), symbol: "د.إ" },
-  { code: "ZAR", label: t("ZAR"), symbol: "R" },
-  { code: "NGN", label: t("NGN"), symbol: "₦" },
-  { code: "SGD", label: t("SGD"), symbol: "S$" },
-  { code: "MXN", label: t("MXN"), symbol: "$" },
-  { code: "COP", label: t("COP"), symbol: "$" },
+  { code: 'USD', label: t('USD'), symbol: '$' },
+  { code: 'EUR', label: t('EUR'), symbol: '€' },
+  { code: 'GBP', label: t('GBP'), symbol: '£' },
+  { code: 'INR', label: t('INR'), symbol: '₹' },
+  { code: 'AUD', label: t('AUD'), symbol: 'A$' },
+  { code: 'CAD', label: t('CAD'), symbol: 'C$' },
+  { code: 'BRL', label: t('BRL'), symbol: 'R$' },
+  { code: 'JPY', label: t('JPY'), symbol: '¥' },
+  { code: 'CNY', label: t('CNY'), symbol: '¥' },
+  { code: 'AED', label: t('AED'), symbol: 'د.إ' },
+  { code: 'ZAR', label: t('ZAR'), symbol: 'R' },
+  { code: 'NGN', label: t('NGN'), symbol: '₦' },
+  { code: 'SGD', label: t('SGD'), symbol: 'S$' },
+  { code: 'MXN', label: t('MXN'), symbol: '$' },
+  { code: 'COP', label: t('COP'), symbol: '$' },
 ];
 
 /**
@@ -64,13 +64,13 @@ export const CURRENCIES: CurrencyOption[] = [
  */
 export function formatCurrency(
   value: number,
-  currency: string = DEFAULT_CURRENCY,
+  currency: string = DEFAULT_CURRENCY
 ): string {
   const code = (currency || DEFAULT_CURRENCY).trim();
   const amount = Number(value) || 0;
   try {
     return new Intl.NumberFormat(undefined, {
-      style: "currency",
+      style: 'currency',
       currency: code,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
@@ -91,7 +91,7 @@ export function formatCurrency(
  */
 export function formatCurrencyShort(
   value: number,
-  currency: string = DEFAULT_CURRENCY,
+  currency: string = DEFAULT_CURRENCY
 ): string {
   const code = currency || DEFAULT_CURRENCY;
   const symbol = CURRENCIES.find((c) => c.code === code)?.symbol ?? `${code} `;

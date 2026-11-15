@@ -104,7 +104,9 @@ describe('matchMessageTemplate', () => {
 
   it('returns null for another name or no name', () => {
     expect(
-      matchMessageTemplate(message({ template_name: 'other' }), [IMAGE_TEMPLATE])
+      matchMessageTemplate(message({ template_name: 'other' }), [
+        IMAGE_TEMPLATE,
+      ])
     ).toBeNull();
     expect(
       matchMessageTemplate(message({ template_name: undefined }), [
@@ -132,7 +134,10 @@ describe('matchMessageTemplate', () => {
   });
 
   it('treats regex characters in the body literally', () => {
-    const priced = template({ id: 'priced', body_text: 'Total (USD): ${{1}}?' });
+    const priced = template({
+      id: 'priced',
+      body_text: 'Total (USD): ${{1}}?',
+    });
     const other = template({ id: 'other', body_text: 'Total USD {{1}}' });
     expect(
       matchMessageTemplate(message({ content_text: 'Total (USD): $9?' }), [

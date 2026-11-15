@@ -1,8 +1,11 @@
-import { uploadResumableMedia } from '@/lib/whatsapp/meta-api'
-import { MEDIA_HEADER_SPECS, isMediaHeaderKind } from '@/lib/whatsapp/media-header-types'
-import type { TemplatePayload } from '@/lib/whatsapp/template-validators'
-import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
-import { getT } from '@/lib/i18n/translate'
+import { uploadResumableMedia } from '@/lib/whatsapp/meta-api';
+import {
+  MEDIA_HEADER_SPECS,
+  isMediaHeaderKind,
+} from '@/lib/whatsapp/media-header-types';
+import type { TemplatePayload } from '@/lib/whatsapp/template-validators';
+import { isDeliverableUrl } from '@/lib/webhooks/ssrf';
+import { getT } from '@/lib/i18n/translate';
 
 /**
  * Meta requires an `example.header_handle` (from the Resumable Upload
@@ -19,26 +22,26 @@ import { getT } from '@/lib/i18n/translate'
  * `media-header-types.ts` and mirror Meta's Cloud API media reference.
  */
 
-const t = getT('Validation.templates')
+const t = getT('Validation.templates');
 
 // One message for the SSRF-guard refusal and a genuinely unreachable
 // host, across all three media kinds — see the guard comment below.
-const unreachableMessage = () => t('headerUrlUnreachable')
+const unreachableMessage = () => t('headerUrlUnreachable');
 
 export async function ensureMediaHeaderHandle(
   payload: TemplatePayload,
-  accessToken: string,
+  accessToken: string
 ): Promise<void> {
-  const kind = payload.header_type
-  if (!isMediaHeaderKind(kind)) return
-  if (payload.header_handle) return // already have one
-  if (!payload.header_media_url) return // validator already requires url-or-handle
+  const kind = payload.header_type;
+  if (!isMediaHeaderKind(kind)) return;
+  if (payload.header_handle) return; // already have one
+  if (!payload.header_media_url) return; // validator already requires url-or-handle
 
-  const spec = MEDIA_HEADER_SPECS[kind]
+  const spec = MEDIA_HEADER_SPECS[kind];
 
-  const appId = process.env.META_APP_ID
+  const appId = process.env.META_APP_ID;
   if (!appId) {
-    throw new Error(t('metaAppIdRequired'))
+    throw new Error(t('metaAppIdRequired'));
   }
 
   // SSRF guard: `header_media_url` is caller-supplied (any authenticated
@@ -48,12 +51,12 @@ export async function ensureMediaHeaderHandle(
   // outbound-fetch call sites (see lib/webhooks/ssrf.ts) — matching the
   // unreachable-host message keeps the failure from being an oracle.
   if (!(await isDeliverableUrl(payload.header_media_url))) {
-    throw new Error(unreachableMessage())
+    throw new Error(unreachableMessage());
   }
 
   // Fetch the sample bytes (works for our uploaded chat-media URL and for
   // a manually-pasted public link).
-  let res: Response
+  let res: Response;
   try {
     res = await fetch(payload.header_media_url, {
       // Do NOT follow redirects — a public URL could 3xx-bounce to an
@@ -61,22 +64,27 @@ export async function ensureMediaHeaderHandle(
       // a hung host can't tie up the template-submit handler.
       redirect: 'manual',
       signal: AbortSignal.timeout(10_000),
-    })
+    });
   } catch {
-    throw new Error(unreachableMessage())
+    throw new Error(unreachableMessage());
   }
   if (!res.ok) {
-    throw new Error(t('headerUrlStatus', { kind, status: res.status }))
+    throw new Error(t('headerUrlStatus', { kind, status: res.status }));
   }
 
-  const contentType = (res.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+  const contentType = (res.headers.get('content-type') || '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
   if (contentType && !spec.mimeTypes.includes(contentType)) {
-    throw new Error(t('headerWrongType', { kind, formats: spec.formats, contentType }))
+    throw new Error(
+      t('headerWrongType', { kind, formats: spec.formats, contentType })
+    );
   }
 
-  const bytes = new Uint8Array(await res.arrayBuffer())
+  const bytes = new Uint8Array(await res.arrayBuffer());
   if (bytes.byteLength === 0) {
-    throw new Error(t('headerEmpty', { kind }))
+    throw new Error(t('headerEmpty', { kind }));
   }
   if (bytes.byteLength > spec.maxBytes) {
     throw new Error(
@@ -84,14 +92,16 @@ export async function ensureMediaHeaderHandle(
         kind,
         size: (bytes.byteLength / 1024 / 1024).toFixed(1),
         max: spec.maxBytes / 1024 / 1024,
-      }),
-    )
+      })
+    );
   }
 
   // A sample served without a Content-Type is assumed to be the kind's
   // most common format (JPEG / MP4 / PDF).
-  const mimeType = spec.mimeTypes.includes(contentType) ? contentType : spec.mimeTypes[0]
-  const fileName = `header.${spec.extensions[mimeType]}`
+  const mimeType = spec.mimeTypes.includes(contentType)
+    ? contentType
+    : spec.mimeTypes[0];
+  const fileName = `header.${spec.extensions[mimeType]}`;
 
   const { handle } = await uploadResumableMedia({
     appId,
@@ -99,6 +109,6 @@ export async function ensureMediaHeaderHandle(
     fileName,
     mimeType,
     bytes,
-  })
-  payload.header_handle = handle
+  });
+  payload.header_handle = handle;
 }
